@@ -25,3 +25,9 @@
 - InfluxDB configurado (organización y depósito "cuarto", 90 días) y puente instalado como servicio.
   Prueba de punta a punta superada: un mensaje publicado con el certificado de nodo1 llegó a InfluxDB con sus
   seis campos (t, hr, i, puerta, agua, origen) y la etiqueta nodo. Sin "ts" en el mensaje, el puente usó la hora del borde.
+- Firmware base del nodo (ESP-IDF 5.5) compilado y cargado en el DevKit V1 al primer intento. Wi-Fi con IP 192.168.110.80,
+  hora sincronizada con el chrony del borde (4 s tras obtener IP), MQTT 5.0 con TLS mutuo conectado y telemetría
+  simulada cada 10 s. Cada mensaje JSON pesa 111 bytes, menos que los 300 supuestos en la propuesta para estimar el ancho de banda.
+- Prueba de última voluntad (RC2): el nodo negocia keepalive de 10 s con MQTT 5 (registro de Mosquitto: p5, k10).
+  Medición 1: desconexión física en 1791673023, "exceeded timeout" en 1791673034: 11 s (requisito: menos de 30 s;
+  máximo teórico 15 s). Pendiente: dos repeticiones más.
