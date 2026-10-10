@@ -1,5 +1,5 @@
 # /etc/influxdb/config.toml
-# InfluxDB 2 en una Raspberry Pi de 1 GB. Los valores por defecto suponen varios GB de memoria.
+# InfluxDB 2 en una Raspberry Pi 4 de 1 GB. Los valores por defecto suponen varios GB de memoria.
 bolt-path = "/var/lib/influxdb/influxd.bolt"
 engine-path = "/var/lib/influxdb/engine"
 

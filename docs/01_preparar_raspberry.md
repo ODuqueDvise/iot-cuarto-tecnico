@@ -9,7 +9,7 @@ Raspberry Pi Imager, versión 1.8 o posterior.
    Debe ser la versión de 64 bits porque InfluxDB 2 solo publica paquetes para arm64.
 3. Almacenamiento: la microSD de 16 GB.
 4. En "Editar ajustes" antes de grabar:
-   - General: nombre de equipo `borde`; usuario y contraseña propios; no configurar Wi-Fi (la Pi va por Ethernet);
+   - General: nombre de equipo `borde`; usuario `odukec` y contraseña propia; no configurar Wi-Fi (la Pi va por Ethernet);
      zona horaria `America/Bogota`; teclado `us` o `latam` según el tuyo.
    - Servicios: activar SSH con autenticación por clave pública. Pegar el contenido de `~/.ssh/id_ed25519.pub` del Mac
      (si no existe: `ssh-keygen -t ed25519`).
@@ -19,9 +19,10 @@ Raspberry Pi Imager, versión 1.8 o posterior.
 ## Primer arranque
 
 1. Conectar la Pi por Ethernet al puerto del conmutador asignado a la VLAN de IoT (puerto de acceso, sin etiqueta;
-   la Pi no necesita configurar 802.1Q). Alimentarla desde la salida de la UPS.
+   la Pi no necesita configurar 802.1Q). Alimentarla desde la salida de la UPS con una fuente USB-C de 5 V y 3 A;
+   con menos corriente la Pi muestra el aviso de bajo voltaje y se reinicia bajo carga.
 2. Esperar dos minutos. Encontrar la IP en el enrutador o con `ping borde.local` desde un equipo en la misma VLAN.
-3. Entrar: `ssh usuario@borde.local` (o por IP).
+3. Entrar: `ssh odukec@borde.local` (o por IP).
 4. Fijar la IP (Raspberry Pi OS Bookworm usa NetworkManager). Ajustar los valores a tu red:
 
    ```bash
