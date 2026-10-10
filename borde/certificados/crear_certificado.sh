@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Emite un certificado firmado por la CA del proyecto.
-#   ./crear_certificado.sh borde 192.168.110.174   -> certificado de servidor con la IP en el SAN
+#   ./crear_certificado.sh borde 192.168.110.174   -> certificado de servidor; el SAN incluye la IP, localhost y 127.0.0.1
+#                                                     para que los servicios del propio borde no dependan de la IP de la red
 #   ./crear_certificado.sh nodo1                 -> certificado de cliente; el CN es el usuario MQTT
 set -euo pipefail
 NOMBRE="${1:?uso: $0 nombre [ip_del_borde]}"
@@ -11,7 +12,7 @@ if [ -n "$IP" ]; then
   EXT="basicConstraints=CA:FALSE
 keyUsage=digitalSignature
 extendedKeyUsage=serverAuth
-subjectAltName=DNS:$NOMBRE,IP:$IP"
+subjectAltName=DNS:$NOMBRE,DNS:localhost,IP:127.0.0.1,IP:$IP"
 else
   EXT="basicConstraints=CA:FALSE
 keyUsage=digitalSignature
