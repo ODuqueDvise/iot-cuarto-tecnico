@@ -30,7 +30,8 @@
   simulada cada 10 s. Cada mensaje JSON pesa 111 bytes, menos que los 300 supuestos en la propuesta para estimar el ancho de banda.
 - Prueba de última voluntad (RC2): el nodo negocia keepalive de 10 s con MQTT 5 (registro de Mosquitto: p5, k10).
   Medición 1: desconexión física en 1791673023, "exceeded timeout" en 1791673034: 11 s (requisito: menos de 30 s;
-  máximo teórico 15 s). Pendiente: dos repeticiones más.
+  máximo teórico 15 s). Medición 2: 1791675212 a 1791675225, 13 s. Medición 3: 1791675271 a 1791675286, 15 s.
+  Rango medido: 11 a 15 s, coherente con 1,5 veces el keepalive de 10 s; cumple RC2 (menos de 30 s) con margen.
 - Decisión: la red 192.168.110.0/24 es la de la casa (desarrollo). La VLAN de IoT se configura en el cuarto técnico al instalar,
   no en la casa. Para que el cambio de red cueste poco: el certificado del borde incluye localhost y 127.0.0.1, el puente se
   conecta por localhost y el nodo verifica el CN "borde" (no la IP). Al mudar el borde solo cambian MQTT_URI y SNTP_SERVIDOR
