@@ -8,6 +8,11 @@ AQUI="$(cd "$(dirname "$0")" && pwd)"
 
 [ "$(id -u)" -eq 0 ] || { echo "ejecutar con sudo"; exit 1; }
 
+# Sin preguntas interactivas: si un paquete trae una versión nueva de un archivo de configuración
+# (por ejemplo, la lista del repositorio de InfluxData), se acepta la del paquete.
+export DEBIAN_FRONTEND=noninteractive UCF_FORCE_CONFFNEW=1
+APT_OPC=(-o Dpkg::Options::=--force-confnew)
+
 echo "== Paquetes base"
 apt-get update
 apt-get install -y apt-transport-https wget gnupg curl chrony mosquitto mosquitto-clients python3-venv python3-pip
@@ -54,7 +59,7 @@ chmod 644 /etc/apt/keyrings/grafana.asc
 echo "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main" > /etc/apt/sources.list.d/grafana.list
 
 apt-get update
-apt-get install -y influxdb2 influxdb2-cli grafana
+apt-get install -y "${APT_OPC[@]}" influxdb2 influxdb2-cli grafana
 
 echo "== InfluxDB ajustado a 1 GB"
 install -m 644 "$AQUI/influxdb/config.toml" /etc/influxdb/config.toml
