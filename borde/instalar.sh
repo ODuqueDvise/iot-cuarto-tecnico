@@ -3,7 +3,7 @@
 # Ejecutar con sudo desde el directorio borde/ del repositorio.
 set -euo pipefail
 
-RED_IOT="192.168.50.0/24"   # subred de la VLAN de IoT; chrony solo atiende a esta red
+RED_IOT="192.168.110.0/24"   # subred de la VLAN de IoT; chrony solo atiende a esta red
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 
 [ "$(id -u)" -eq 0 ] || { echo "ejecutar con sudo"; exit 1; }

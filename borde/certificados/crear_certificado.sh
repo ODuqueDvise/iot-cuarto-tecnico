@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Emite un certificado firmado por la CA del proyecto.
-#   ./crear_certificado.sh borde 192.168.50.10   -> certificado de servidor con la IP en el SAN
+#   ./crear_certificado.sh borde 192.168.110.174   -> certificado de servidor con la IP en el SAN
 #   ./crear_certificado.sh nodo1                 -> certificado de cliente; el CN es el usuario MQTT
 set -euo pipefail
 NOMBRE="${1:?uso: $0 nombre [ip_del_borde]}"

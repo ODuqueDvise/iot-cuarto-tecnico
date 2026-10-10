@@ -27,7 +27,7 @@ Raspberry Pi Imager, versión 1.8 o posterior.
 
    ```bash
    sudo nmcli con mod "Wired connection 1" ipv4.method manual \
-     ipv4.addresses 192.168.50.10/24 ipv4.gateway 192.168.50.1 ipv4.dns 192.168.50.1
+     ipv4.addresses 192.168.110.174/24 ipv4.gateway 192.168.110.1 ipv4.dns 192.168.110.1
    sudo nmcli con up "Wired connection 1"
    ```
 

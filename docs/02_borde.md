@@ -7,7 +7,7 @@ Todo se ejecuta en la Raspberry Pi, dentro de `iot-cuarto-tecnico/borde`, despu�
 ```bash
 cd certificados
 ./crear_ca.sh
-./crear_certificado.sh borde 192.168.50.10     # el intermediario; la IP es la fija de la Pi
+./crear_certificado.sh borde 192.168.110.174     # el intermediario; la IP es la fija de la Pi
 ./crear_certificado.sh borde-puente            # el puente MQTT a InfluxDB
 ./crear_certificado.sh nodo1                   # el nodo del cuarto
 ./crear_certificado.sh registrador             # el registrador provisional
@@ -22,8 +22,8 @@ así que debe coincidir con el prefijo del tema en `mosquitto/acl.conf` (`cuarto
 Prueba desde la misma Pi, con el certificado del puente:
 
 ```bash
-mosquitto_sub -h 192.168.50.10 -p 8883 --cafile salida/ca.crt --cert salida/borde-puente.crt --key salida/borde-puente.key -t 'cuarto/#' -v &
-mosquitto_pub -h 192.168.50.10 -p 8883 --cafile salida/ca.crt --cert salida/nodo1.crt --key salida/nodo1.key -t cuarto/nodo1/telemetria -m '{"prueba":1}'
+mosquitto_sub -h 192.168.110.174 -p 8883 --cafile salida/ca.crt --cert salida/borde-puente.crt --key salida/borde-puente.key -t 'cuarto/#' -v &
+mosquitto_pub -h 192.168.110.174 -p 8883 --cafile salida/ca.crt --cert salida/nodo1.crt --key salida/nodo1.key -t cuarto/nodo1/telemetria -m '{"prueba":1}'
 ```
 
 Debe verse el mensaje. Una publicación con el certificado de `nodo1` a `cuarto/registrador/telemetria` debe ser rechazada en silencio (RNF2).
@@ -39,7 +39,7 @@ El guion imprime el token una sola vez. Guardarlo en `../puente/puente.env`.
 
 ## Grafana
 
-Abrir `http://192.168.50.10:3000` desde la red administrativa (usuario `admin`, contraseña `admin`, cambiarla al entrar).
+Abrir `http://192.168.110.174:3000` desde la red administrativa (usuario `admin`, contraseña `admin`, cambiarla al entrar).
 La fuente de datos queda aprovisionada por `grafana/datasource.yaml`; `configurar.sh` la copia con el token a
 `/etc/grafana/provisioning/datasources/influx.yaml`.
 
