@@ -1,0 +1,15 @@
+# Nodo del cuarto técnico, ESP32-WROOM-32 (DevKit V1)
+CONFIG_IDF_TARGET="esp32"
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+
+# MQTT 5.0 (RC2)
+CONFIG_MQTT_PROTOCOL_5=y
+
+# Sin el paquete de certificados públicos: solo se confía en la CA del proyecto
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
+
+# Gestión de energía: modem-sleep entre transmisiones (RNF3)
+CONFIG_PM_ENABLE=y
+CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
+
+# Pendiente para la etapa de seguridad: CONFIG_SECURE_FLASH_ENC_ENABLED y CONFIG_NVS_ENCRYPTION

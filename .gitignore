@@ -1,0 +1,20 @@
+# Claves y secretos
+borde/certificados/salida/
+borde/puente/puente.env
+nodo/main/secretos.h
+nodo/main/certs/*
+!nodo/main/certs/LEEME.md
+
+# Compilación ESP-IDF
+nodo/build/
+nodo/sdkconfig
+nodo/sdkconfig.old
+nodo/managed_components/
+nodo/dependencies.lock
+
+# Python
+__pycache__/
+.venv/
+
+# Sistema
+.DS_Store

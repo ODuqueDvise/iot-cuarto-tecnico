@@ -1,0 +1,5 @@
+# /etc/default/zramswap
+# Intercambio comprimido en memoria. Evita escribir en la microSD cuando la memoria se agota.
+ALGO=zstd
+PERCENT=50
+PRIORITY=100

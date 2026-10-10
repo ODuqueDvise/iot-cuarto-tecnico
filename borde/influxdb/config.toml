@@ -1,0 +1,21 @@
+# /etc/influxdb/config.toml
+# InfluxDB 2 en una Raspberry Pi de 1 GB. Los valores por defecto suponen varios GB de memoria.
+bolt-path = "/var/lib/influxdb/influxd.bolt"
+engine-path = "/var/lib/influxdb/engine"
+
+# Caché de escritura: por defecto 1 GB. Aquí 64 MB, suficiente para un punto cada 10 s.
+storage-cache-max-memory-size = 67108864
+storage-cache-snapshot-memory-size = 16777216
+
+# Espacia las sincronizaciones del registro de escritura anticipada para reducir escrituras en la microSD.
+storage-wal-fsync-delay = "1s"
+
+# Consultas: pocas y acotadas.
+query-concurrency = 2
+query-queue-size = 10
+query-memory-bytes = 33554432
+query-initial-memory-bytes = 4194304
+query-max-memory-bytes = 67108864
+
+# Sin reportes a InfluxData.
+reporting-disabled = true

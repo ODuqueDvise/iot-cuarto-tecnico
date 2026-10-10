@@ -1,0 +1,16 @@
+[Unit]
+Description=Puente MQTT a InfluxDB del cuarto tecnico
+After=network-online.target mosquitto.service influxdb.service
+Wants=network-online.target
+
+[Service]
+User=puente
+Group=puente
+EnvironmentFile=/etc/puente/puente.env
+ExecStart=/opt/puente/.venv/bin/python /opt/puente/puente.py
+Restart=always
+RestartSec=5
+MemoryMax=96M
+
+[Install]
+WantedBy=multi-user.target
