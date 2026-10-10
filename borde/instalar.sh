@@ -10,12 +10,18 @@ AQUI="$(cd "$(dirname "$0")" && pwd)"
 
 echo "== Paquetes base"
 apt-get update
-apt-get install -y apt-transport-https wget gnupg curl zram-tools chrony mosquitto mosquitto-clients python3-venv python3-pip
+apt-get install -y apt-transport-https wget gnupg curl chrony mosquitto mosquitto-clients python3-venv python3-pip
 
-echo "== Sin intercambio en la microSD; zram en su lugar"
+echo "== Intercambio: zram en memoria, nunca en la microSD"
 systemctl disable --now dphys-swapfile 2>/dev/null || true
-install -m 644 "$AQUI/sistema/zramswap" /etc/default/zramswap
-systemctl restart zramswap
+if swapon --show=NAME --noheadings | grep -q zram; then
+  # Las versiones recientes de Raspberry Pi OS ya traen zram activo; instalar zram-tools encima falla.
+  echo "zram ya activo por el sistema; no se instala zram-tools"
+else
+  apt-get install -y zram-tools
+  install -m 644 "$AQUI/sistema/zramswap" /etc/default/zramswap
+  systemctl restart zramswap
+fi
 
 echo "== Registros del sistema en memoria"
 install -d /etc/systemd/journald.conf.d
