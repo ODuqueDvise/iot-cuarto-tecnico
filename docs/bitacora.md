@@ -35,3 +35,11 @@
   no en la casa. Para que el cambio de red cueste poco: el certificado del borde incluye localhost y 127.0.0.1, el puente se
   conecta por localhost y el nodo verifica el CN "borde" (no la IP). Al mudar el borde solo cambian MQTT_URI y SNTP_SERVIDOR
   en secretos.h y la IP del SAN del certificado.
+- Detector SSD-MobileNetV2 (COCO, TF2 Model Zoo, exportado a ONNX en el Mac) medido en la Pi con ONNX Runtime, 4 hilos, entrada 320x320:
+  carga del modelo 6,8 s desde la microSD; inferencia media 207 ms (mediana 205, p95 217, 30 corridas); ráfaga de 20 cuadros
+  estimada en 4,1 s (RF4). Memoria del proceso: 131 MB pico. Conteo correcto en 3 fotos (0, 1 y 2 personas, umbral 0,5);
+  muestra mínima, no es una evaluación de exactitud.
+- Memoria con todos los servicios y el puente, sin detector: 488 MB disponibles. Grafana 163 MB más sus procesos de complementos
+  (InfluxDB 19, PostgreSQL 8, Loki 7 MB); influxd 43 MB residentes, parte en zram. Con el detector en una ráfaga quedarían unos 360 MB.
+- Temperatura del SoC 73 °C justo después de la medición (55 °C en reposo). La Pi 4 empieza a reducir frecuencia hacia 80 °C;
+  revisar disipación antes de instalarla en el cuarto técnico.

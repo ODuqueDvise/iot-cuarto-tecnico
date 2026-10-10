@@ -15,7 +15,7 @@ Tomar además dos o tres fotos con el celular: una sin personas, una con una per
 
 ```bash
 ssh odukec@192.168.110.174 mkdir -p iot-cuarto-tecnico/modelos
-scp modelos/ssd_mobilenet_v2_coco.onnx modelos/*.jpg odukec@192.168.110.174:iot-cuarto-tecnico/modelos/
+scp modelos/ssd_mobilenet_v2_coco.onnx modelos/*.jp*g odukec@192.168.110.174:iot-cuarto-tecnico/modelos/
 ```
 
 ## En la Pi: medir con todos los servicios arriba
@@ -24,7 +24,7 @@ scp modelos/ssd_mobilenet_v2_coco.onnx modelos/*.jpg odukec@192.168.110.174:iot-
 python3 -m venv ~/venv-detector
 ~/venv-detector/bin/pip install onnxruntime numpy pillow
 cd ~/iot-cuarto-tecnico/herramientas
-~/venv-detector/bin/python medir_detector.py --modelo ../modelos/ssd_mobilenet_v2_coco.onnx ../modelos/*.jpg
+~/venv-detector/bin/python medir_detector.py --modelo ../modelos/ssd_mobilenet_v2_coco.onnx ../modelos/*.jp*g
 free -m
 ```
 
