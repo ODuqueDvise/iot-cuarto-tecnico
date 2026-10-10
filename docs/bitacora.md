@@ -12,3 +12,10 @@
   de acceso de IoT a una VLAN propia; al cambiar la IP del borde hay que reemitir su certificado (crear_certificado.sh borde <ip>).
 - Repositorio publicado en https://github.com/ODuqueDvise/iot-cuarto-tecnico (privado).
 - Pendiente de medir: memoria disponible en la Pi de 1 GB con Mosquitto, InfluxDB y Grafana arriba.
+- Sistema: Raspberry Pi OS sobre Debian 13 (trixie); trae zram propio (905 MB), por eso se retiró zram-tools del instalador.
+  La primera instalación quedó detenida en una pregunta interactiva del paquete de claves de InfluxData; el instalador
+  ahora corre en modo no interactivo.
+- Instalados: InfluxDB 2.9.1, Grafana 13.2.3, Mosquitto, chrony.
+- Medición de memoria con InfluxDB y Grafana arriba (sin datos): 667 MB disponibles con la sesión de Warp abierta
+  (unos 90 MB de su servidor remoto); sin ella, unos 750 MB. Grafana 203 MB, influxd 95 MB. Supera el umbral de 400 MB:
+  Grafana se queda. Temperatura del SoC 55,5 °C en reposo.
