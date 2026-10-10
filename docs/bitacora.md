@@ -19,3 +19,9 @@
 - Medición de memoria con InfluxDB y Grafana arriba (sin datos): 667 MB disponibles con la sesión de Warp abierta
   (unos 90 MB de su servidor remoto); sin ella, unos 750 MB. Grafana 203 MB, influxd 95 MB. Supera el umbral de 400 MB:
   Grafana se queda. Temperatura del SoC 55,5 °C en reposo.
+- Mosquitto con TLS mutuo en 8883 (se quitó la persistencia duplicada de iot.conf). Prueba superada:
+  nodo1 publica en su tema y el puente lo recibe; nodo1 en el tema del registrador es descartado por la ACL;
+  conexión sin TLS al 1883 rechazada. Evidencia para RNF2 y RC2.
+- InfluxDB configurado (organización y depósito "cuarto", 90 días) y puente instalado como servicio.
+  Prueba de punta a punta superada: un mensaje publicado con el certificado de nodo1 llegó a InfluxDB con sus
+  seis campos (t, hr, i, puerta, agua, origen) y la etiqueta nodo. Sin "ts" en el mensaje, el puente usó la hora del borde.
