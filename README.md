@@ -13,8 +13,8 @@ La propuesta entregada está en `docs/propuesta.pdf`; este repositorio contiene 
   - `influxdb/`: configuración ajustada a 1 GB y creación del depósito con retención de 90 días.
   - `grafana/`: aprovisionamiento de la fuente de datos.
   - `puente/`: servicio que pasa la telemetría de MQTT a InfluxDB, escribiendo por lotes.
-- `nodo/`: firmware ESP-IDF del nodo ESP32 (DevKit V1). En esta etapa publica telemetría simulada.
-- `herramientas/`: guiones de medición.
+- `nodo/`: firmware ESP-IDF del nodo ESP32 (DevKit V1). Cada sensor se compila en modo real, simulado o ausente; `nodo/pruebas/` prueba los cálculos en el computador.
+- `herramientas/`: guiones de medición y captura serie del nodo (`capturar_serie.py`).
 - `docs/`: guías paso a paso y bitácora.
 
 ## Estado

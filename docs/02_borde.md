@@ -53,3 +53,26 @@ journalctl -u puente -f
 ```
 
 Cuando el nodo publique, `influx query 'from(bucket:"cuarto") |> range(start:-10m)'` debe mostrar puntos.
+
+## Registrador CSV
+
+Servicio independiente del puente y de InfluxDB que escribe `/var/lib/registrador/<nodo>_<AAAAMMDD>.csv`, con las mismas
+columnas que la captura serie del Mac. Usa el usuario, los certificados y el entorno de Python del puente, y una sesión
+persistente de MQTT 5 de una hora: si se reinicia, Mosquitto le entrega lo que llegó mientras tanto. Solo registra
+mensajes con hora del nodo y descarta duplicados por marca de tiempo.
+
+Instalación y actualización desde el Mac: `herramientas/nodo.sh registrador` (corre `prueba_registrador.py` en la Pi
+antes de instalar). Para traer los archivos del día: `nodo.sh traer`; para validarlos: `nodo.sh validar <csv>`.
+
+## Panel de Grafana
+
+`borde/grafana/nodo_sensor.json` se aprovisiona por archivo (`tablero.yaml`) en la carpeta "Cuarto técnico". Elige la
+fuente InfluxDB y el nodo con variables, así que no depende del identificador interno de la fuente de datos. Muestra los
+valores actuales, las series de temperatura y punto de rocío (umbrales 27 °C y 15 °C), HR (60 %), corriente media y
+máxima, puerta y agua, muestras por hora (120 esperadas a 30 s), retraso respecto de la cuadrícula, estado de los sensores,
+muestras sin hora y la salud de la Pi (temperatura del SoC y memoria disponible, que escribe el puente cada 30 s en la
+medición `borde`).
+
+Instalación desde el Mac: `herramientas/nodo.sh panel`. Antes de instalar corre cada consulta del tablero contra InfluxDB
+en la Pi (`probar_consultas.py`) y se detiene si alguna falla. El tablero queda en `http://<borde>:3000/d/nodo-sensor`.
+

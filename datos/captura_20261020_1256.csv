@@ -1,0 +1,3 @@
+seq,ts_epoch,ts_local_iso,retraso_ms,t_c,hr_pct,punto_rocio_c,i_media_a,i_max_a,puerta,puerta_aperturas,agua,agua_eventos,estado_sensores,origen
+0,1792519020,2026-10-20T12:57:00-05:00,2,24.75,54.67,15.00,0.002,0.002,0,0,0,0,2,sensor
+1,1792519050,2026-10-20T12:57:30-05:00,2,24.68,54.93,15.01,0.002,0.002,0,0,0,0,0,sensor

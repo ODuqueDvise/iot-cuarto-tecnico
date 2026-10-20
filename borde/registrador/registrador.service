@@ -1,0 +1,19 @@
+[Unit]
+Description=Registrador CSV de la telemetria del cuarto tecnico
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+# Usa el usuario, los certificados y el entorno de Python del puente (ver borde/puente).
+User=puente
+Group=puente
+EnvironmentFile=/etc/puente/puente.env
+Environment=REGISTRO_DIR=/var/lib/registrador
+StateDirectory=registrador
+ExecStart=/opt/puente/.venv/bin/python /opt/registrador/registrador_csv.py
+Restart=always
+RestartSec=5
+MemoryMax=48M
+
+[Install]
+WantedBy=multi-user.target

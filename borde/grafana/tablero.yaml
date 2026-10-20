@@ -1,0 +1,12 @@
+# Proveedor de tableros por archivo. Se instala en /etc/grafana/provisioning/dashboards/cuarto.yaml
+# con herramientas/nodo.sh panel; el tablero queda en /var/lib/grafana/dashboards/cuarto/.
+apiVersion: 1
+providers:
+  - name: cuarto
+    folder: Cuarto técnico
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards/cuarto

@@ -1,0 +1,141 @@
+menu "Nodo del cuarto técnico"
+
+    config NODO_PERIODO_S
+        int "Periodo de muestreo y registro (s)"
+        range 5 3600
+        default 30
+        help
+            Las muestras se toman en múltiplos exactos de este periodo según el reloj sincronizado
+            con el borde (hh:mm:00 y hh:mm:30 con 30 s). La Actividad 2 exige 30 s; la operación
+            descrita en la propuesta usa 10 s.
+
+    menu "Modo de cada sensor"
+        choice NODO_SHT31_MODO
+            prompt "Temperatura y HR (SHT31)"
+            default NODO_SHT31_SIMULADO
+            config NODO_SHT31_REAL
+                bool "Real"
+            config NODO_SHT31_SIMULADO
+                bool "Simulado"
+            config NODO_SHT31_AUSENTE
+                bool "Ausente"
+        endchoice
+
+        choice NODO_CORRIENTE_MODO
+            prompt "Corriente (SCT-013 con ADS1115)"
+            default NODO_CORRIENTE_SIMULADO
+            config NODO_CORRIENTE_REAL
+                bool "Real"
+            config NODO_CORRIENTE_SIMULADO
+                bool "Simulado"
+            config NODO_CORRIENTE_AUSENTE
+                bool "Ausente"
+        endchoice
+
+        choice NODO_PUERTA_MODO
+            prompt "Puerta (contacto magnético)"
+            default NODO_PUERTA_SIMULADO
+            config NODO_PUERTA_REAL
+                bool "Real"
+            config NODO_PUERTA_SIMULADO
+                bool "Simulado"
+            config NODO_PUERTA_AUSENTE
+                bool "Ausente"
+        endchoice
+
+        choice NODO_AGUA_MODO
+            prompt "Fuga de agua (sonda de dos electrodos)"
+            default NODO_AGUA_SIMULADO
+            config NODO_AGUA_REAL
+                bool "Real"
+            config NODO_AGUA_SIMULADO
+                bool "Simulado"
+            config NODO_AGUA_AUSENTE
+                bool "Ausente"
+        endchoice
+    endmenu
+
+    menu "Pines y direcciones"
+        config NODO_I2C_SDA
+            int "GPIO de SDA"
+            default 21
+        config NODO_I2C_SCL
+            int "GPIO de SCL"
+            default 22
+        config NODO_SHT31_DIR
+            hex "Dirección I2C del SHT31"
+            default 0x44
+            help
+                0x44 con ADDR a tierra, 0x45 con ADDR a VDD. Confirmar con el escaneo I2C del arranque.
+        config NODO_ADS1115_DIR
+            hex "Dirección I2C del ADS1115"
+            default 0x48
+            help
+                0x48 con ADDR a tierra. Confirmar con el escaneo I2C del arranque.
+        config NODO_ADS1115_RDY
+            int "GPIO conectado a ALERT/RDY del ADS1115"
+            default 19
+            help
+                El ADS1115 marca el fin de cada conversión con un pulso bajo en ALERT/RDY (salida de
+                drenador abierto; el firmware activa la resistencia de pull-up interna).
+        config NODO_PUERTA_GPIO
+            int "GPIO del contacto de puerta"
+            default 27
+            help
+                Contacto entre este GPIO y tierra, con pull-up interna. Contacto cerrado (imán presente,
+                puerta cerrada) lee 0; puerta abierta o cable cortado lee 1.
+        config NODO_PUERTA_INVERTIDA
+            bool "Contacto abierto con el imán presente"
+            depends on NODO_PUERTA_REAL
+            default n
+            help
+                Para contactos de dos hilos que abren cuando el imán está cerca. El firmware invierte
+                la lectura para que puerta cerrada siga siendo 0. Limitación: con este contacto, un
+                cable cortado se lee como puerta cerrada, porque no se distingue del contacto abierto.
+        config NODO_LED_GPIO
+            int "GPIO del LED de estado (-1 lo desactiva)"
+            default 2
+            range -1 33
+            help
+                En la ESP32 DevKit V1 el LED azul de la placa suele estar en GPIO 2. Patrones: parpadeo
+                rápido sin Wi-Fi; lento sin MQTT o sin hora; un destello cada 3 s en línea; tres
+                destellos si la última muestra trae falla de sensor; fijo 300 ms en cada muestra.
+        config NODO_AGUA_EXC_GPIO
+            int "GPIO que excita la sonda de agua"
+            default 25
+        config NODO_AGUA_ADC_GPIO
+            int "GPIO de lectura de la sonda (debe ser de ADC1)"
+            default 34
+            help
+                GPIO 32 a 39 pertenecen a ADC1. GPIO 34 a 39 no tienen pull-down interna: poner una
+                resistencia externa a tierra (por ejemplo 100 kOhm).
+    endmenu
+
+    menu "Calibración y umbrales"
+        config NODO_CT_MA_POR_V
+            int "Factor del transformador de corriente (mA por V eficaz)"
+            default 50000
+            help
+                SCT-013-050: 50 A por 1 V de salida, es decir 50000 mA/V. Se ajusta con la calibración
+                contra la referencia.
+        config NODO_CT_VUELTAS
+            int "Vueltas del conductor a través del transformador"
+            default 1
+            range 1 20
+            help
+                Con N vueltas el transformador ve N veces la corriente; el firmware divide por N. Sirve
+                para calibrar con una carga pequeña. En la instalación normal es 1.
+        config NODO_AGUA_UMBRAL_MV
+            int "Umbral de la sonda de agua (mV)"
+            default 500
+        config NODO_COLA_SALIDA_KB
+            int "Tamaño máximo de la cola de salida MQTT (KB)"
+            default 96
+            help
+                Mensajes retenidos mientras no hay conexión con el intermediario. Con unos 235 bytes por
+                mensaje, 96 KB alcanzan para unas 400 muestras, más de 3 horas a 30 s. Medido el 11 de
+                octubre con TLS conectado: 170 KB de memoria libre como mínimo, así que con la cola llena
+                quedan más de 70 KB.
+    endmenu
+
+endmenu

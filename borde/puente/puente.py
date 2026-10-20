@@ -4,12 +4,17 @@
 Se suscribe a la telemetría de todos los nodos y la escribe en InfluxDB por lotes.
 El intervalo de vaciado es corto (10 s) porque el detector de anomalías lee de la base de datos.
 Una sola etiqueta (nodo) para mantener baja la cardinalidad de series.
+
+La hora de cada punto es la del nodo (campo "ts", sincronizado por SNTP con el borde). Un mensaje sin hora
+válida no se mezcla con la serie: va a la medición "telemetria_sin_hora" con la hora de llegada en
+nanosegundos, para que varios mensajes que llegan juntos desde la cola del nodo no se sobrescriban.
 """
 import json
 import logging
 import os
 import signal
 import sys
+import threading
 import time
 
 import paho.mqtt.client as mqtt
@@ -21,8 +26,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 CFG = {k: os.environ[k] for k in ("MQTT_HOST", "MQTT_CA", "MQTT_CERT", "MQTT_KEY",
                                    "INFLUX_URL", "INFLUX_TOKEN", "INFLUX_ORG", "INFLUX_BUCKET")}
 MQTT_PUERTO = int(os.environ.get("MQTT_PUERTO", "8883"))
-CAMPOS_NUM = ("t", "hr", "i", "seq")
+# Los tipos de campo no pueden cambiar en InfluxDB: t, hr, i y seq ya existen como float en el depósito.
+CAMPOS_FLOAT = ("t", "hr", "pr", "i", "i_max", "seq")
+CAMPOS_INT = ("puerta_n", "agua_n", "est", "retraso_ms", "periodo")
 CAMPOS_BOOL = ("puerta", "agua")
+TS_MINIMO = 1_600_000_000   # cualquier hora anterior a septiembre de 2020 se toma como "sin hora"
+PERIODO_BORDE_S = 30        # salud del borde: temperatura del SoC y memoria disponible
+ARCHIVO_TEMPERATURA = "/sys/class/thermal/thermal_zone0/temp"
+ARCHIVO_MEMORIA = "/proc/meminfo"
 
 influx = InfluxDBClient(url=CFG["INFLUX_URL"], token=CFG["INFLUX_TOKEN"], org=CFG["INFLUX_ORG"])
 escritor = influx.write_api(write_options=WriteOptions(batch_size=100, flush_interval=10_000,
@@ -31,25 +42,60 @@ escritor = influx.write_api(write_options=WriteOptions(batch_size=100, flush_int
 
 
 def punto_desde(tema, carga):
-    """Convierte un mensaje JSON de telemetría en un punto de InfluxDB."""
+    """Convierte un mensaje JSON de telemetría en un punto de InfluxDB.
+
+    Devuelve (punto, con_hora). Un campo ausente o nulo no se escribe: el nodo omite lo que no midió.
+    """
     nodo = tema.split("/")[1]
     d = json.loads(carga)
-    p = Point("telemetria").tag("nodo", nodo)
-    for c in CAMPOS_NUM:
-        if c in d:
-            p = p.field(c, float(d[c]))
-    for c in CAMPOS_BOOL:
-        if c in d:
-            p = p.field(c, bool(d[c]))
-    if "origen" in d:
-        p = p.field("origen", str(d["origen"]))
     ts = d.get("ts")
-    # El nodo manda la hora en segundos desde 1970 (SNTP contra el borde). Si no es creíble, se usa la del borde.
-    if isinstance(ts, (int, float)) and ts > 1_600_000_000:
+    con_hora = isinstance(ts, (int, float)) and not isinstance(ts, bool) and ts > TS_MINIMO
+    p = Point("telemetria" if con_hora else "telemetria_sin_hora").tag("nodo", nodo)
+    for c in CAMPOS_FLOAT:
+        if d.get(c) is not None:
+            p = p.field(c, float(d[c]))
+    for c in CAMPOS_INT:
+        if d.get(c) is not None:
+            p = p.field(c, int(d[c]))
+    for c in CAMPOS_BOOL:
+        if d.get(c) is not None:
+            p = p.field(c, bool(d[c]))
+    if d.get("origen") is not None:
+        p = p.field("origen", str(d["origen"]))
+    if con_hora:
         p = p.time(int(ts), WritePrecision.S)
     else:
-        p = p.time(int(time.time()), WritePrecision.S)
-    return p
+        p = p.time(time.time_ns(), WritePrecision.NS)
+    return p, con_hora
+
+
+def punto_borde(archivo_temperatura=ARCHIVO_TEMPERATURA, archivo_memoria=ARCHIVO_MEMORIA):
+    """Salud de la Pi para el panel: temperatura del SoC (°C) y memoria disponible (MB). None si no hay datos."""
+    p = Point("borde")
+    hay = False
+    try:
+        with open(archivo_temperatura) as f:
+            p = p.field("t_soc", int(f.read().strip()) / 1000.0)
+            hay = True
+    except (OSError, ValueError):
+        pass
+    try:
+        with open(archivo_memoria) as f:
+            for linea in f:
+                if linea.startswith("MemAvailable:"):
+                    p = p.field("mem_disp_mb", int(linea.split()[1]) / 1024.0)
+                    hay = True
+                    break
+    except (OSError, ValueError):
+        pass
+    return p.time(time.time_ns(), WritePrecision.NS) if hay else None
+
+
+def tarea_borde(detener):
+    while not detener.wait(PERIODO_BORDE_S):
+        punto = punto_borde()
+        if punto is not None:
+            escritor.write(bucket=CFG["INFLUX_BUCKET"], record=punto)
 
 
 def al_conectar(cliente, datos, banderas, codigo, propiedades):
@@ -61,7 +107,10 @@ def al_mensaje(cliente, datos, msg):
     try:
         partes = msg.topic.split("/")
         if partes[-1] == "telemetria":
-            escritor.write(bucket=CFG["INFLUX_BUCKET"], record=punto_desde(msg.topic, msg.payload))
+            punto, con_hora = punto_desde(msg.topic, msg.payload)
+            escritor.write(bucket=CFG["INFLUX_BUCKET"], record=punto)
+            if not con_hora:
+                log.warning("mensaje de %s sin hora válida: va a telemetria_sin_hora con la hora de llegada", partes[1])
         elif partes[-1] == "estado":
             estado = msg.payload.decode(errors="replace")
             escritor.write(bucket=CFG["INFLUX_BUCKET"],
@@ -87,6 +136,7 @@ def main():
 
     signal.signal(signal.SIGTERM, salir)
     signal.signal(signal.SIGINT, salir)
+    threading.Thread(target=tarea_borde, args=(threading.Event(),), daemon=True).start()
     cliente.loop_forever(retry_first_connection=True)
 
 

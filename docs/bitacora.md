@@ -44,3 +44,90 @@
   (InfluxDB 19, PostgreSQL 8, Loki 7 MB); influxd 43 MB residentes, parte en zram. Con el detector en una ráfaga quedarían unos 360 MB.
 - Temperatura del SoC 73 °C justo después de la medición (55 °C en reposo). La Pi 4 empieza a reducir frecuencia hacia 80 °C;
   revisar disipación antes de instalarla en el cuarto técnico.
+
+## 2026-10-11
+
+- Plan de la Actividad 2 revisado (`../Actividad 2/plan_de_trabajo.md`): compra local el martes 13 (SHT31, contacto, sonda),
+  captura serie en el Mac en lugar de copia en LittleFS, periodo fijo de 30 s en compilación, consumo con INA226 fuera.
+- Firmware del nodo, etapa 2 (N-03): cada sensor en modo real, simulado o ausente (menú "Nodo del cuarto técnico");
+  muestreo en cuadrícula absoluta de 30 s; seq por muestra (antes solo avanzaba con MQTT conectado, y el periodo real era
+  10 s más el tiempo de publicación); línea CSV por serie; cola de salida MQTT de 48 KB con expiración de 3 h
+  (la de fábrica descartaba a los 30 s); estado_sensores por bits; memoria libre cada hora.
+- Controladores: SHT31 (0x2400, CRC 0x31), ADS1115 diferencial AIN0-AIN1, ±2,048 V, 860 SPS, ALERT/RDY como conversión
+  lista (0x04E0; con 0x04E3 el pin queda en alta impedancia). Comandos y bits contrastados con las hojas de datos.
+- Compilado sin advertencias con ESP-IDF 5.5.5 en cuatro combinaciones de modos. Con los controladores reales el binario
+  ocupaba el 96 % de la partición de 1 MB: se pasa a la de 1,5 MB (35 % libre). Hay que borrar `nodo/sdkconfig` antes de
+  compilar para que tome los nuevos valores por defecto.
+- Pruebas de cálculos en el computador (`nodo/pruebas/`): CRC del ejemplo de la hoja de datos, conversiones, punto de rocío,
+  valor eficaz con desvío y cuadrícula; todas pasan. Captura serie probada con un nodo simulado en una pseudoterminal.
+- Pendiente: cargar en el DevKit con sensores simulados y verificar las líneas REG y el retraso respecto de la cuadrícula;
+  ampliar el puente con los campos nuevos (pr, i_max, puerta_n, agua_n, est, retraso_ms, periodo), que hoy ignora.
+
+- Atajo `herramientas/nodo.sh`: activa ESP-IDF, detecta el puerto y compila, carga, monitorea, captura y cambia modos con una orden.
+- Primera carga del firmware de la etapa 2 en el DevKit, con sensores simulados. Con la Pi apagada: sin hora (15 s de espera
+  agotados) y MQTT con tiempo agotado (esp-tls 0x8006); las líneas REG siguieron saliendo por serie con estado 40 (8 + 32).
+  Al encender la Pi: cola de 1699 B enviada al conectar (seis mensajes de unos 283 B), seq continuo del 0 al 9, primera
+  muestra con hora a las 10:35:00 con 1 ms de retraso y estado 16. Memoria libre 205 KB antes de TLS.
+- Puente (N-04): campos nuevos (pr, i_max como float; puerta_n, agua_n, est, retraso_ms, periodo como enteros; seq sigue
+  como float porque ese tipo ya existe en el depósito). Los mensajes sin hora van a la medición telemetria_sin_hora con la
+  hora de llegada en nanosegundos: antes recibían la hora del borde en segundos y los que llegaban juntos desde la cola se
+  sobrescribían. Pruebas en `borde/puente/prueba_puente.py`; escritura por lotes con dos precisiones verificada contra un
+  servidor de prueba. `nodo.sh puente` lo prueba, instala y reinicia en la Pi.
+- Puente actualizado en la Pi con `nodo.sh puente`; consulta en InfluxDB: est entero y pr decimal en la medición
+  telemetria, con marca 15:53:30 UTC sobre la cuadrícula. El JSON del nodo traía residuos de redondeo en float
+  (10.991000175...): ahora redondea en double (pendiente de cargar en el nodo).
+- Registrador CSV del borde (N-05): `borde/registrador/`. Probado aquí contra un Mosquitto con TLS mutuo: seis mensajes,
+  dos publicados con el servicio detenido (entregados al volver por la sesión persistente) y un duplicado descartado.
+- Validador `herramientas/validar_archivo.py`: 360 filas, seq, separación, celdas vacías, origen, bits de estado,
+  rangos de RF1, series congeladas, recorte por hora, contraste entre dos archivos y .xlsx. `nodo.sh oficial` lo
+  ejecuta al terminar la captura.
+- Firmware con redondeo corregido cargado. Hora sincronizada 4,8 s después de la IP, MQTT a los 8,6 s, primera muestra
+  11:03:00 con 8 ms de retraso y estado 0. Memoria con TLS conectado: 174,7 KB libres (mínima 169,5 KB). Mensaje de unos
+  235 B tras el redondeo. Cola de salida subida de 48 a 96 KB (unas 400 muestras, más de 3 h); queda más de 70 KB libre
+  con la cola llena.
+- Panel de Grafana (N-06): `borde/grafana/nodo_sensor.json`, 18 paneles, aprovisionado por archivo con variables de fuente
+  y nodo. Las consultas se prueban contra InfluxDB en la Pi antes de instalar (`nodo.sh panel`). No probado en Grafana 13.2.3
+  todavía: el formato es el clásico (schemaVersion 39), que Grafana migra al cargar.
+- Puente: salud del borde cada 30 s (temperatura del SoC y memoria disponible) en la medición `borde`, para el panel y para
+  vigilar la reducción de frecuencia hacia 80 °C. Requiere `nodo.sh puente` para llegar a la Pi.
+
+- Tablero de Grafana instalado con `nodo.sh panel` (11 de octubre). Para el ensayo N-07: `nodo.sh capturar` evita el reposo del Mac con caffeinate, `nodo.sh corte [s]` detiene Mosquitto para probar la cola, y el contraste con el CSV del borde se limita al intervalo de la captura.
+- `nodo.sh ensayo [min] [s]`: ensayo N-07 sin intervención; el corte de Mosquitto lo programa la Pi con systemd-run (sudo una sola vez al inicio); al final trae el CSV del borde, valida y compara.
+- Ensayo N-07 (11 de octubre, 11:25:00 a 14:24:30, sensores simulados, `nodo.sh ensayo`): 360 filas, seq de 0 a 359 sin
+  huecos, separación siempre de 30 s, retraso máximo 0 ms. Corte de Mosquitto de 120 s programado en la Pi: cuatro muestras
+  (12:55:00 a 12:56:30) registradas sin conexión (bit 32), retenidas en la cola del nodo y entregadas al volver. El CSV del
+  registrador del borde coincide con la captura serie en las 360 marcas, incluidas las cuatro del corte: la sesión persistente
+  del registrador sobrevivió al reinicio de Mosquitto. Validador: sin fallas. Temperatura máxima del SoC de la Pi durante las 3 h:
+  66,2 °C (InfluxDB, medición borde), por debajo de los 80 °C en que reduce frecuencia; no hace falta disipador por ahora.
+- Observación: abrir la captura serie reinicia el ESP32 en macOS (seq empezó en 0); esta vez la primera muestra llegó con hora.
+
+
+## 2026-10-17
+
+- Cierre de la Actividad 2 confirmado: jueves 22 de octubre, 23:59. Calendario del plan rehecho: prueba oficial el martes 20.
+- Llegó el SHT3x (sin compra local). Conectado a 3V3, GND, SDA en D21, SCL en D22, ADR a GND. Firmware con temperatura y HR en modo real: el escaneo encuentra 0x44; primeras lecturas 25,35 °C y 45,65 a 46,42 % HR (punto de rocío 12,8 a 13,0 °C), estado 0. Hora sincronizada 0,2 s después de la IP y MQTT a los 3,6 s.
+- Llegaron el ADS1115, el contacto magnético, la sonda de agua y el SCT-013. Puerta y agua cargadas en modo real (corriente sigue simulada, por eso origen "simulado").
+- Puerta, primera prueba (15:22 a 15:24:30): lógica invertida, 1 con el imán puesto y 0 sin él; el regreso del imán se contó como apertura. Antirrebote y conteo entre muestras correctos. Se descarta invertir por firmware: con contacto abierto en reposo, un cable cortado se leería como puerta cerrada. Desde las 15:26:00 la puerta lee 0 con el imán puesto; falta confirmar 1 al retirarlo y 1 con el cable de D27 suelto.
+- `puerta_aperturas` y `agua_eventos` cuentan eventos por intervalo de 30 s y se reinician en cada muestra; no son acumulados.
+- Prueba del aliento sobre el SHT3x (15:27:00): HR de 46,05 a 51,34 % y punto de rocío de 14,10 a 15,75 °C; volvió a 46,24 % en la muestra siguiente.
+- Sonda de agua (15:28:00): gota entre electrodos, agua 1 y agua_eventos 1, estado 0.
+- El contacto magnético solo tiene dos hilos. Se agregó la opción `NODO_PUERTA_INVERTIDA` (apagada por defecto) y la orden `nodo.sh contacto normal|invertido`, para usarla solo si se confirma que el contacto abre con el imán.
+- El transformador recibido es SCT-013-050 (50 A/1 V, carga interna), no el SCT-013-005 de la propuesta. Firmware: factor 50000 mA/V, escala del ADS1115 de ±2,048 V a ±0,512 V (configuración 0x08E0; 15,6 µV y 0,78 mA por cuenta; hasta unos 18 A eficaces) y opción `NODO_CT_VUELTAS` para calibrar con varias vueltas. Contenido del informe actualizado (modelo y contacto invertido).
+- LED de estado (`led.c`, `NODO_LED_GPIO`, 2 por defecto, -1 lo desactiva): parpadeo rápido sin Wi-Fi; lento sin MQTT o sin hora; un destello cada 3 s en línea; tres destellos si la última muestra trae falla de sensor; fijo 300 ms en cada muestra. Compilado en el contenedor con todos los sensores reales, con el LED activo y desactivado, sin advertencias en main/.
+- Corriente en modo real (16:45 a 16:49): piso de ruido sin carga 0,002 A (media y máximo). Bombillo LED de 8,8 W encendido hacia las 16:46:25: la muestra de 16:46:30 trae media 0,017 A y máximo 0,098 A (encendido dentro del intervalo); desde 16:47:00, estable en 0,096 a 0,098 A, unas 48 veces el piso de ruido. Con 120 V nominales implica un factor de potencia cercano a 0,76, plausible para un bombillo LED. Sin calibración contra pinza: la pinza no resuelve cargas de este tamaño y no hay carga resistiva grande. Temperatura recuperada a 25,7 a 26,1 °C tras el calentamiento de las 16:04.
+- Ensayo N-15 de 1 h con los cinco sensores en modo real (`datos/captura_20261017_1650.csv`, 16:51:00 a 17:50:30): 120 filas, seq 0 a 119 sin huecos, origen "sensor" en todas, ningún bit de estado, retraso de 7 a 14 ms. Validador: sin fallas. Temperatura 25,4 a 26,2 °C, HR 50,9 a 56,3 %, punto de rocío 15,1 a 16,4 °C. Corriente: 0,002 A apagado y 0,093 a 0,098 A con el bombillo LED, con medias intermedias en los intervalos de cambio. Puerta: 5 aperturas, incluida una corta dentro de un intervalo (17:05:30, puerta 0 y 1 apertura). Agua: 6 eventos; en 17:40:00 y 17:42:00 se contó un evento nuevo con el estado ya en 1, gotas nuevas puestas a esas horas (confirmado); sin oscilación de la sonda, no se agrega histéresis.
+- Contraste del ensayo N-15 con el CSV del registrador del borde: 120 marcas en común, sin diferencias. `nodo.sh validar` ahora resuelve rutas relativas desde la carpeta del proyecto.
+- Sin referencias: el bombillo solo indica 8,8 W, 110 a 240 V, 50/60 Hz (sin corriente ni factor de potencia) y no hay termohigrómetro. El informe declara la corriente sin calibrar con una cota inferior (8,8 W / 120 V = 0,073 A frente a 0,097 A medidos) y la exactitud de temperatura y HR como la del fabricante. Fig. 1 y verificación previa (Tabla IV) agregadas al borrador; protocolo de carga cambiado a tres ciclos de 5 min del bombillo.
+- Ronda adversarial del informe (18:00): corregidos el modelo de corriente (se pidió el de 5 A; las dos unidades recibidas son de 50 A), la "cota" de corriente (es plausibilidad, no cota), SHT31 a SHT3x (el módulo solo dice SHT3X; exactitud citada: la del SHT30), cola MQTT "unas 3 h", protocolo sin hielo y con botella cerrada. Retirado el argumento de punto de rocío estable: durante el calentamiento del 16:04 subió de 14 a 18,6 °C (retardo del elemento de humedad). Pendientes: alejar el SHT3x del ESP32 y medir la diferencia; comprobar que secretos.h, certs y puente.env nunca entraron al historial antes de hacer público el repositorio; enviar la pregunta al profesor sobre "pantalla"; evidencias (fotos, capturas, video) el martes.
+- El sobre del sensor dice SHT31-D (la serigrafía del módulo solo dice SHT3X): el informe vuelve a SHT31 y cita la exactitud del SHT31.
+
+## 2026-10-18
+
+- Decisión: no se pregunta al profesor por "visualizar en pantalla"; se refuerza la evidencia. El informe describe el conjunto como estación de medición (nodo, computador del canal serie y borde). `capturar_serie.py` muestra cada registro como fila de una tabla con rótulos (estado en palabras, contadores entre paréntesis, cabecera cada 30 filas); el CSV no cambia. Probado con un puerto en bucle. Lista de evidencias para el martes en `Actividad 2/evidencias/LEEME.md`.
+
+## 2026-10-20
+
+- Prueba oficial (`datos/oficial_20261020_0837.csv`, 08:38:00 a 11:37:30): 360 filas, seq 0 a 359, origen "sensor", sin bits de estado, retraso 2 a 7 ms. Sin estímulos salvo tres aperturas de puerta (08:40, 09:08, 09:29; abierta desde 09:29 hasta el final). Corriente 0,001 A todo el tiempo; sin agua. Temperatura 22,4 a 24,7 °C (mañana), HR 48,9 a 56,4 %. Se entrega como prueba de registro de 3 h; la respuesta a estímulos se documenta con los ensayos del 17 de octubre.
+- Videos (`Actividad 2/videos/`): IMG_7055.MOV (79 s, celular, montaje completo: válido); primera grabación de pantalla de 12:56 (24 s) descartada: sin filas y con terminal de otros proyectos; segunda grabación de 13:18 (120 s) válida: Grafana, `tail` en la Pi y tabla de la captura con la misma fila 13:20:00 "abierta(1)" en los tres, panel en "Abierta". Cuadros extraídos en `evidencias/_cuadros_tmp/` (borrar al final).
+- Borrador completo del informe (7 páginas, 3 pendientes: contraste con el borde del 20, enlaces de los videos, decisión sobre el código). Figuras 2 a 4 generadas por `figuras.py` desde los CSV del repositorio y los cuadros del video. `informe.js`: las tablas ya no se parten entre páginas (keepNext en cada celda), porque una tabla partida seguida de sección continua se superponía al texto. Exactitud del SHT31 citada como ±0,2 °C y ±2 % HR típicos (verificada en la ficha del distribuidor; confirmar en la hoja de datos). `datos/oficial_20261020_0837.xlsx` generado.
+- Contraste de la prueba oficial con el CSV del registrador del borde (`datos/borde/nodo1_20261020.csv`): 360 marcas en común, sin diferencias.

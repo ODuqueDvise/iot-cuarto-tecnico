@@ -1,6 +1,8 @@
 # Nodo del cuarto técnico, ESP32-WROOM-32 (DevKit V1)
 CONFIG_IDF_TARGET="esp32"
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+# Partición de aplicación de 1,5 MB: con los controladores reales el binario ocupa el 96 % de la de 1 MB
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
 
 # MQTT 5.0 (RC2)
 CONFIG_MQTT_PROTOCOL_5=y
@@ -13,3 +15,11 @@ CONFIG_PM_ENABLE=y
 CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
 
 # Pendiente para la etapa de seguridad: CONFIG_SECURE_FLASH_ENC_ENABLED y CONFIG_NVS_ENCRYPTION
+
+# Cola de salida MQTT (Actividad 2): retiene las muestras sin conexión hasta 3 h en lugar de los
+# 30 s por defecto; el tamaño máximo lo fija CONFIG_NODO_COLA_SALIDA_KB.
+CONFIG_MQTT_USE_CUSTOM_CONFIG=y
+CONFIG_MQTT_OUTBOX_EXPIRED_TIMEOUT_MS=10800000
+
+# Nodo: periodo de 30 s y sensores simulados hasta que lleguen las piezas (menú "Nodo del cuarto técnico")
+CONFIG_NODO_PERIODO_S=30
