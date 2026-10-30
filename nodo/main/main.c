@@ -2,8 +2,9 @@
  *
  * - Wi-Fi en modo estación, hora por SNTP desde el borde, MQTT 5.0 sobre TLS con certificado de
  *   cliente y mensaje de última voluntad (igual que la etapa 1).
- * - Muestreo sobre una cuadrícula absoluta: una muestra en cada múltiplo de CONFIG_NODO_PERIODO_S
- *   del reloj sincronizado, sin deriva acumulada.
+ * - Muestreo sobre una cuadrícula absoluta: una muestra en cada múltiplo del periodo (CONFIG_NODO_PERIODO_S
+ *   al arrancar; cambiable por comando MQTT) del reloj sincronizado, sin deriva acumulada.
+ * - Comandos en cuarto/<nodo>/comandos (periodo, led) con respuesta en cuarto/<nodo>/respuestas.
  * - seq avanza en cada muestra tomada, haya o no conexión, así que una pérdida deja un hueco visible.
  * - Cada muestra sale por dos canales independientes:
  *   1. Una línea CSV por el puerto serie, que empieza por "REG," (la captura en el Mac la guarda).
@@ -52,6 +53,13 @@ static volatile bool mqtt_conectado = false;
 static char tema_telemetria[48];
 static char tema_estado[48];
 static char tema_comandos[48];
+static char tema_respuestas[48];
+
+/* Periodo de muestreo vigente, en segundos. Arranca con el valor compilado y puede cambiarse por
+ * comando (RNF4 de la propuesta); la tarea de muestreo rehace la cuadrícula al verlo cambiar. */
+static volatile int periodo_s = CONFIG_NODO_PERIODO_S;
+#define PERIODO_MIN_S 5
+#define PERIODO_MAX_S 600
 
 /* Columnas de la línea serie; el mismo orden usa la captura del Mac. */
 #define CABECERA_CSV "seq,ts_epoch,ts_local_iso,retraso_ms,t_c,hr_pct,punto_rocio_c,i_media_a,i_max_a," \
@@ -126,6 +134,74 @@ static int64_t reloj_us(bool *con_hora)
     return esp_timer_get_time();
 }
 
+/* ---------- Comandos ----------
+ * Un comando es un objeto JSON en cuarto/<nodo>/comandos. Claves admitidas:
+ *   "periodo": entero de 5 a 600, nuevo periodo de muestreo en segundos.
+ *   "led": "on", "off" o "auto", fuerza el LED de estado o devuelve los patrones.
+ *   "id": cualquier valor; se devuelve en la respuesta para correlacionar.
+ * La respuesta va a cuarto/<nodo>/respuestas: {"id":..., "ok":true|false, "detalle":"...", "periodo":N}.
+ * Solo los clientes autorizados por la lista de control del intermediario pueden escribir en comandos;
+ * las reglas duras del nodo no se anulan desde aquí. */
+static void responder(cJSON *id, bool ok, const char *detalle)
+{
+    cJSON *r = cJSON_CreateObject();
+    if (id != NULL) {
+        cJSON_AddItemToObject(r, "id", cJSON_Duplicate(id, 1));
+    }
+    cJSON_AddBoolToObject(r, "ok", ok);
+    cJSON_AddStringToObject(r, "detalle", detalle);
+    cJSON_AddNumberToObject(r, "periodo", periodo_s);
+    char *s = cJSON_PrintUnformatted(r);
+    if (s != NULL) {
+        esp_mqtt_client_enqueue(cliente, tema_respuestas, s, 0, 1, 0, true);
+        ESP_LOGI(TAG, "respuesta: %s", s);
+        cJSON_free(s);
+    }
+    cJSON_Delete(r);
+}
+
+static void atender_comando(const char *datos, int n)
+{
+    cJSON *j = cJSON_ParseWithLength(datos, n);
+    if (j == NULL || !cJSON_IsObject(j)) {
+        cJSON_Delete(j);
+        responder(NULL, false, "el comando no es un objeto JSON");
+        return;
+    }
+    cJSON *id = cJSON_GetObjectItem(j, "id");
+    cJSON *p = cJSON_GetObjectItem(j, "periodo");
+    cJSON *led = cJSON_GetObjectItem(j, "led");
+    bool alguno = false;
+
+    if (p != NULL) {
+        if (!cJSON_IsNumber(p) || p->valuedouble < PERIODO_MIN_S || p->valuedouble > PERIODO_MAX_S ||
+            p->valuedouble != (int) p->valuedouble) {
+            cJSON_Delete(j);
+            responder(id, false, "periodo fuera de 5 a 600 s");
+            return;
+        }
+        periodo_s = (int) p->valuedouble;
+        alguno = true;
+    }
+    if (led != NULL) {
+        const char *v = cJSON_IsString(led) ? led->valuestring : "";
+        if (strcmp(v, "on") == 0) {
+            led_forzar(1);
+        } else if (strcmp(v, "off") == 0) {
+            led_forzar(0);
+        } else if (strcmp(v, "auto") == 0) {
+            led_forzar(-1);
+        } else {
+            cJSON_Delete(j);
+            responder(id, false, "led debe ser on, off o auto");
+            return;
+        }
+        alguno = true;
+    }
+    responder(id, alguno, alguno ? "aplicado" : "sin claves conocidas (periodo, led)");
+    cJSON_Delete(j);
+}
+
 /* ---------- MQTT ---------- */
 static void manejador_mqtt(void *arg, esp_event_base_t base, int32_t id, void *datos)
 {
@@ -143,7 +219,7 @@ static void manejador_mqtt(void *arg, esp_event_base_t base, int32_t id, void *d
         break;
     case MQTT_EVENT_DATA:
         ESP_LOGI(TAG, "comando en %.*s: %.*s", ev->topic_len, ev->topic, ev->data_len, ev->data);
-        /* Etapa posterior: interpretar comandos (umbrales, horarios). Las reglas duras no se anulan desde aquí. */
+        atender_comando(ev->data, ev->data_len);
         break;
     case MQTT_EVENT_ERROR:
         if (ev->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
@@ -160,6 +236,7 @@ static void iniciar_mqtt(void)
     snprintf(tema_telemetria, sizeof tema_telemetria, "cuarto/%s/telemetria", NODO_ID);
     snprintf(tema_estado,     sizeof tema_estado,     "cuarto/%s/estado",     NODO_ID);
     snprintf(tema_comandos,   sizeof tema_comandos,   "cuarto/%s/comandos",   NODO_ID);
+    snprintf(tema_respuestas, sizeof tema_respuestas, "cuarto/%s/respuestas", NODO_ID);
 
     esp_mqtt_client_config_t cfg = {
         .broker.address.uri = MQTT_URI,
@@ -239,7 +316,7 @@ static void publicar(const muestra_t *m, const char *origen)
         cJSON_AddNumberToObject(j, "ts", (double) m->ts);
     }
     cJSON_AddNumberToObject(j, "seq", m->seq);
-    cJSON_AddNumberToObject(j, "periodo", CONFIG_NODO_PERIODO_S);
+    cJSON_AddNumberToObject(j, "periodo", periodo_s);
     cJSON_AddNumberToObject(j, "retraso_ms", m->retraso_ms);
     agregar_num(j, "t", m->t_c);
     agregar_num(j, "hr", m->hr_pct);
@@ -287,7 +364,8 @@ static led_red_t estado_red(void)
 /* ---------- Muestreo ---------- */
 static void tarea_muestreo(void *arg)
 {
-    const int64_t periodo_us = (int64_t) CONFIG_NODO_PERIODO_S * 1000000LL;
+    int periodo_vigente = periodo_s;
+    int64_t periodo_us = (int64_t) periodo_vigente * 1000000LL;
     const char *origen = sensores_origen();
     uint32_t seq = 0;
     int64_t objetivo = 0;
@@ -297,16 +375,28 @@ static void tarea_muestreo(void *arg)
         bool con_hora;
         int64_t ahora = reloj_us(&con_hora);
 
+        /* Cambio de periodo por comando: nueva cuadrícula con el periodo nuevo. */
+        if (periodo_s != periodo_vigente) {
+            periodo_vigente = periodo_s;
+            periodo_us = (int64_t) periodo_vigente * 1000000LL;
+            ESP_LOGI(TAG, "periodo de muestreo cambiado a %d s", periodo_vigente);
+            objetivo = 0;
+            salto = true;   /* la muestra siguiente lleva el bit de cuadrícula recalculada */
+        }
         /* Primera vuelta, o el reloj saltó (sincronización inicial o corrección): nueva cuadrícula. */
         if (objetivo == 0 || objetivo - ahora > 2 * periodo_us || ahora - objetivo > periodo_us) {
-            salto = (objetivo != 0);
+            salto = salto || (objetivo != 0);
             objetivo = cuadricula_siguiente(ahora, periodo_us);
         }
 
         /* Espera gruesa con el planificador y ajuste final de a un tick. */
-        while ((ahora = reloj_us(&con_hora)) < objetivo && objetivo - ahora <= 2 * periodo_us) {
+        while ((ahora = reloj_us(&con_hora)) < objetivo && objetivo - ahora <= 2 * periodo_us &&
+               periodo_s == periodo_vigente) {
             int64_t falta_ms = (objetivo - ahora) / 1000;
-            vTaskDelay(falta_ms > 30 ? pdMS_TO_TICKS(falta_ms - 20) : 1);
+            vTaskDelay(falta_ms > 30 ? pdMS_TO_TICKS(falta_ms > 1000 ? 500 : falta_ms - 20) : 1);
+        }
+        if (periodo_s != periodo_vigente) {
+            continue;   /* llegó un comando de periodo durante la espera */
         }
         if (ahora < objetivo || ahora - objetivo > periodo_us) {
             continue;   /* el reloj saltó durante la espera; la vuelta siguiente rehace la cuadrícula */
@@ -332,7 +422,7 @@ static void tarea_muestreo(void *arg)
         publicar(&m, origen);
         led_muestra((m.estado & (EST_SHT31_FALLO | EST_CORRIENTE_FALLO | EST_AGUA_FALLO)) != 0);
 
-        if (m.seq % (3600 / CONFIG_NODO_PERIODO_S) == 0) {   /* cada hora, para el ensayo N-07 */
+        if (m.seq % (3600 / periodo_vigente) == 0) {   /* cada hora aproximadamente */
             ESP_LOGI(TAG, "memoria libre %lu B (mínima %lu B); cola de salida %d B",
                      (unsigned long) esp_get_free_heap_size(), (unsigned long) esp_get_minimum_free_heap_size(),
                      esp_mqtt_client_get_outbox_size(cliente));

@@ -23,6 +23,7 @@
 static led_red_t (*consultar_red)(void);
 static volatile bool fallo = false;
 static volatile int muestra_restante = 0;
+static volatile int forzado = -1;
 
 static bool encendido(led_red_t red, int paso)
 {
@@ -45,7 +46,9 @@ static void tarea_led(void *arg)
     TickType_t ultimo = xTaskGetTickCount();
     for (int paso = 0;; paso = (paso + 1) % PASOS_CICLO) {
         bool nivel;
-        if (muestra_restante > 0) {
+        if (forzado >= 0) {
+            nivel = forzado;
+        } else if (muestra_restante > 0) {
             muestra_restante--;
             nivel = true;
         } else {
@@ -80,9 +83,15 @@ void led_muestra(bool fallo_sensor)
     muestra_restante = PASOS_MUESTRA;
 }
 
+void led_forzar(int modo)
+{
+    forzado = modo < 0 ? -1 : (modo ? 1 : 0);
+}
+
 #else   /* LED desactivado */
 
 void led_iniciar(led_red_t (*consulta)(void)) { (void) consulta; }
 void led_muestra(bool fallo_sensor) { (void) fallo_sensor; }
+void led_forzar(int modo) { (void) modo; }
 
 #endif

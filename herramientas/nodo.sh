@@ -16,6 +16,8 @@
 #   nodo.sh puente               prueba, instala y reinicia en la Pi el puente MQTT a InfluxDB del repositorio
 #   nodo.sh registrador          prueba, instala y reinicia en la Pi el registrador CSV del borde
 #   nodo.sh panel                prueba las consultas e instala en Grafana el tablero del nodo sensor
+#   nodo.sh comandos             instala en la Pi la herramienta de comandos y la lista de control nueva
+#   nodo.sh comando '<json>'     envía un comando al nodo y espera la respuesta (ej. '{"periodo": 10}')
 #   nodo.sh corte [segundos]     detiene Mosquitto en la Pi durante N s (120 por defecto) para probar la cola
 #   nodo.sh ensayo [min] [s]     ensayo N-07 completo: 360 registros, corte de Mosquitto de s segundos (120) a los
 #                                min minutos (90), y al final trae el CSV del borde, valida y compara
@@ -222,6 +224,29 @@ contacto() {
     idf.py reconfigure >/tmp/nodo_reconfigurar.log 2>&1 || { cat /tmp/nodo_reconfigurar.log >&2; fallar "idf.py reconfigure falló"; }
     modos
     aviso "para que el cambio llegue al nodo: $0"
+}
+
+# ---------- Comandos ----------
+instalar_comandos() {
+    local host usuario="${BORDE_USUARIO:-odukec}"
+    host="$(host_borde)"
+    aviso "copiando comando.py y acl.conf a $usuario@$host"
+    scp -q "$REPO/borde/comandos/comando.py" "$REPO/borde/mosquitto/acl.conf" "$usuario@$host:/tmp/"
+    aviso "instalando y recargando Mosquitto (sudo puede pedir la contraseña de la Pi)"
+    ssh -t "$usuario@$host" 'set -e
+        sudo install -o puente -g puente -m 644 /tmp/comando.py /opt/puente/comando.py
+        sudo install -m 644 /tmp/acl.conf /etc/mosquitto/acl.conf
+        sudo systemctl reload mosquitto || sudo systemctl restart mosquitto
+        echo "mosquitto: $(systemctl is-active mosquitto)"'
+}
+
+comando() {
+    [ $# -ge 1 ] || fallar "uso: $0 comando '"'"'{\"periodo\": 10}'"'"'  (claves: periodo 5 a 600, led on|off|auto)"
+    local host usuario="${BORDE_USUARIO:-odukec}" nodo
+    host="$(host_borde)"
+    nodo="$(sed -n 's/^#define NODO_ID *"\([^"]*\)".*/\1/p' "$NODO/main/secretos.h" | head -1)"
+    [ -n "$nodo" ] || nodo=nodo1
+    ssh "$usuario@$host" "sudo -u puente /opt/puente/.venv/bin/python /opt/puente/comando.py $nodo '$1'"
 }
 
 # ---------- Borde ----------
@@ -442,6 +467,8 @@ case "$orden" in
     puente) actualizar_puente ;;
     registrador) actualizar_registrador ;;
     panel) actualizar_panel ;;
+    comandos) instalar_comandos ;;
+    comando) comando "$@" ;;
     corte) corte "${1:-120}" ;;
     ensayo) ensayo "${1:-90}" "${2:-120}" ;;
     traer) traer "${1:-}" ;;
@@ -473,6 +500,6 @@ case "$orden" in
         cc -std=gnu11 -I../main prueba_calculos.c ../main/calculos.c -lm -o /tmp/prueba_calculos_nodo
         /tmp/prueba_calculos_nodo
         ;;
-    ayuda|-h|--help) sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//' ;;
+    ayuda|-h|--help) sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//' ;;
     *) fallar "orden desconocida: $orden (ver: $0 ayuda)" ;;
 esac

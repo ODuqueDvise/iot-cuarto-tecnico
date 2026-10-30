@@ -128,3 +128,19 @@ El LED azul de la placa (GPIO 2, `NODO_LED_GPIO`; -1 lo desactiva) indica el est
 | Un destello corto cada 3 s | En línea, sensores bien |
 | Tres destellos cortos cada 3 s | En línea, la última muestra trae falla de algún sensor (bits 1, 2 o 4) |
 | Encendido fijo 300 ms | Se acaba de registrar una muestra (cada 30 s) |
+
+## Comandos por MQTT (Actividad 3)
+
+El nodo está suscrito a `cuarto/<nodo>/comandos` (QoS 2) y responde en `cuarto/<nodo>/respuestas` (QoS 1). Un comando es un objeto JSON:
+
+| Clave | Valor | Efecto |
+|---|---|---|
+| `periodo` | entero de 5 a 600 | Nuevo periodo de muestreo en segundos. La tarea de muestreo rehace la cuadrícula y la muestra siguiente lleva el bit 16 (cuadrícula recalculada). El campo `periodo` de la telemetría refleja el valor vigente |
+| `led` | `"on"`, `"off"`, `"auto"` | Fuerza el LED de estado encendido o apagado, o devuelve los patrones automáticos |
+| `id` | cualquiera | Se devuelve en la respuesta para correlacionar |
+
+Respuesta: `{"id": ..., "ok": true|false, "detalle": "...", "periodo": N}`. Un comando con una clave inválida se rechaza completo y no cambia nada. El periodo compilado (`CONFIG_NODO_PERIODO_S`) vuelve a regir en el siguiente arranque: el cambio no se guarda en memoria no volátil.
+
+Quién puede comandar: la lista de control de Mosquitto (`borde/mosquitto/acl.conf`) solo deja escribir en `comandos` al certificado del puente (`borde-puente`); cada nodo solo lee sus comandos y escribe su telemetría, su estado y sus respuestas. Con TLS mutuo, un cliente sin certificado firmado por la CA del proyecto ni siquiera conecta.
+
+Desde el Mac: `nodo comandos` instala la herramienta y la lista de control en la Pi una vez; después, `nodo comando '{"periodo": 10}'` envía el comando y muestra la respuesta. En la Pi, la herramienta es `/opt/puente/comando.py`.

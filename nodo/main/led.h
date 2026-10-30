@@ -16,3 +16,6 @@ void led_iniciar(led_red_t (*consulta)(void));
 /* Avisa que se registró una muestra: encendido fijo 300 ms. `fallo_sensor` queda vigente hasta la
  * muestra siguiente y cambia el latido de uno a tres destellos. */
 void led_muestra(bool fallo_sensor);
+
+/* Modo forzado por comando: 0 apagado, 1 encendido, -1 automático (los patrones de arriba). */
+void led_forzar(int modo);
