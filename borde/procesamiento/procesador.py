@@ -210,14 +210,14 @@ def marcar_huecos(d):
         d.loc[g.index, "faltantes"] = faltan
         d.loc[g.index[hueco.fillna(False)], "calidad"] |= CAL_HUECO_ANTES
         for idx in g.index[hueco.fillna(False)]:
-            huecos.append({"nodo": nodo, "inicio": g.loc[idx, "ts"] - pd.Timedelta(seconds=float(delta[idx])),
+            huecos.append({"nodo": nodo, "inicio": g.loc[idx, "ts"] - pd.Timedelta(float(delta[idx]), unit="s"),
                            "fin": g.loc[idx, "ts"], "faltantes": int(faltan[idx]), "tipo": "hueco"})
         # Un arranque precedido de más de 1,5 periodos sin muestras es un apagado: el nodo no registró nada en
         # ese lapso (sin energía, sin reloj o reiniciando). Se cuenta aparte, con las muestras que habrían cabido.
         periodo_prev = d.loc[g.index, "periodo"].shift(1)
         apagado = g["arranque"] & (delta > 1.5 * periodo_prev)
         for idx in g.index[apagado.fillna(False)]:
-            apagados.append({"nodo": nodo, "inicio": g.loc[idx, "ts"] - pd.Timedelta(seconds=float(delta[idx])),
+            apagados.append({"nodo": nodo, "inicio": g.loc[idx, "ts"] - pd.Timedelta(float(delta[idx]), unit="s"),
                              "fin": g.loc[idx, "ts"], "faltantes": int(round(delta[idx] / periodo_prev[idx]) - 1), "tipo": "apagado"})
     return d, {"huecos": len(huecos), "muestras_faltantes": int(d["faltantes"].sum()), "apagados": len(apagados),
                "muestras_sin_registrar": int(sum(a["faltantes"] for a in apagados))}, huecos + apagados
