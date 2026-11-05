@@ -1,0 +1,9 @@
+franja,variable,n,media,desviacion,minimo,maximo
+día,temperatura (°C),6365,23.048,0.784,21.38,24.55
+día,humedad relativa (%),6365,52.058,3.58,44.57,59.83
+día,punto de rocío (°C),6365,12.636,0.723,11.08,14.69
+día,corriente media (A),6362,0.241,0.244,0.001,0.658
+noche,temperatura (°C),6406,23.222,0.744,21.72,24.55
+noche,humedad relativa (%),6406,54.806,2.476,46.56,59.74
+noche,punto de rocío (°C),6406,13.605,0.532,11.63,14.76
+noche,corriente media (A),6402,0.281,0.258,0.079,0.652

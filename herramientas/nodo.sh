@@ -16,12 +16,16 @@
 #   nodo.sh puente               prueba, instala y reinicia en la Pi el puente MQTT a InfluxDB del repositorio
 #   nodo.sh registrador          prueba, instala y reinicia en la Pi el registrador CSV del borde
 #   nodo.sh panel                prueba las consultas e instala en Grafana el tablero del nodo sensor
+#   nodo.sh procesamiento        prueba el procesador con los CSV del repositorio y lo instala en la Pi
+#                                (depósito procesado, token, temporizador y tareas Flux)
+#   nodo.sh procesar <csv> [dir] corre el procesador en el Mac sobre un CSV y deja la salida en dir
 #   nodo.sh comandos             instala en la Pi la herramienta de comandos y la lista de control nueva
 #   nodo.sh comando '<json>'     envía un comando al nodo y espera la respuesta (ej. '{"periodo": 10}')
 #   nodo.sh corte [segundos]     detiene Mosquitto en la Pi durante N s (120 por defecto) para probar la cola
 #   nodo.sh ensayo [min] [s]     ensayo N-07 completo: 360 registros, corte de Mosquitto de s segundos (120) a los
 #                                min minutos (90), y al final trae el CSV del borde, valida y compara
-#   nodo.sh traer [AAAAMMDD]     copia del borde los CSV de ese día (hoy por defecto) a datos/borde/
+#   nodo.sh traer [fechas]       copia del borde los CSV de esos días a datos/borde/: hoy por defecto,
+#                                varias fechas AAAAMMDD, o un rango AAAAMMDD-AAAAMMDD
 #   nodo.sh validar <csv> [...]  valida un archivo de registros (ver validar_archivo.py --help)
 #
 # Variables opcionales: PUERTO=/dev/cu.xxx si hay más de un puerto serie; IDF_EXPORT=<ruta a export.sh>
@@ -326,6 +330,35 @@ actualizar_registrador() {
         if [ -n "$ultimo" ]; then echo "== $ultimo"; tail -3 "$ultimo"; else echo "todavía no hay archivo: llega con la próxima muestra con hora"; fi'
 }
 
+# Prueba el procesador en el Mac con los CSV del repositorio y, si pasa, copia la carpeta a la Pi y corre
+# el instalador (depósito, token, entorno, temporizador y tareas Flux).
+actualizar_procesamiento() {
+    local host usuario="${BORDE_USUARIO:-odukec}"
+    host="$(host_borde)"
+    local origen="$REPO/borde/procesamiento"
+    if python3 -c 'import pandas' 2>/dev/null; then
+        aviso "pruebas del procesador en el Mac"
+        python3 "$origen/prueba_procesador.py" || return 1
+    else
+        aviso "sin pandas en el Mac (pip3 install pandas): se omiten las pruebas locales"
+    fi
+    aviso "copiando a $usuario@$host"
+    ssh "$usuario@$host" 'rm -rf /tmp/procesamiento_nuevo && mkdir -p /tmp/procesamiento_nuevo/tareas /tmp/procesamiento_nuevo/grafana'
+    scp -q "$origen"/procesador.py "$origen"/prueba_procesador.py "$origen"/procesador.service \
+        "$origen"/procesador.timer "$origen"/procesador.env.ejemplo "$origen"/requirements.txt \
+        "$origen"/instalar_procesamiento.sh "$usuario@$host:/tmp/procesamiento_nuevo/"
+    scp -q "$origen"/tareas/*.flux "$usuario@$host:/tmp/procesamiento_nuevo/tareas/"
+    scp -q "$REPO/borde/grafana/procesado.json" "$REPO/borde/grafana/datasource_procesado.yaml" \
+        "$usuario@$host:/tmp/procesamiento_nuevo/grafana/"
+    aviso "instalando (sudo puede pedir la contraseña de la Pi)"
+    ssh -t "$usuario@$host" 'cd /tmp/procesamiento_nuevo && bash instalar_procesamiento.sh'
+}
+
+procesar_csv() {
+    [ -n "${1:-}" ] || { echo "uso: nodo.sh procesar <csv> [carpeta_salida]"; return 1; }
+    python3 "$REPO/borde/procesamiento/procesador.py" --csv "$1" --salida "${2:-$REPO/datos/procesado}"
+}
+
 # Prueba cada consulta del tablero contra InfluxDB en la Pi y, si todas corren, lo instala en Grafana.
 actualizar_panel() {
     local host usuario="${BORDE_USUARIO:-odukec}"
@@ -409,13 +442,31 @@ ensayo() {
     echo "Panel: http://$host:3000/d/nodo-sensor (muestras por hora sin hueco a la hora del corte)."
 }
 
+# Acepta varias fechas y rangos (AAAAMMDD-AAAAMMDD); sin argumentos, hoy. Una sola conexión scp por fecha.
 traer() {
-    local host usuario="${BORDE_USUARIO:-odukec}" fecha="${1:-$(date +%Y%m%d)}"
+    local host usuario="${BORDE_USUARIO:-odukec}" fechas fecha
     host="$(host_borde)"
     mkdir -p "$DATOS/borde"
-    aviso "copiando /var/lib/registrador/*_$fecha.csv a $DATOS/borde/"
-    scp "$usuario@$host:/var/lib/registrador/*_$fecha.csv" "$DATOS/borde/"
-    ls -l "$DATOS/borde/"*"_$fecha.csv"
+    [ $# -gt 0 ] || set -- "$(date +%Y%m%d)"
+    fechas="$(python3 - "$@" <<'PY'
+import sys
+from datetime import datetime, timedelta
+salida = []
+for arg in sys.argv[1:]:
+    if "-" in arg:
+        a, b = (datetime.strptime(x, "%Y%m%d") for x in arg.split("-", 1))
+        while a <= b:
+            salida.append(a.strftime("%Y%m%d")); a += timedelta(days=1)
+    else:
+        datetime.strptime(arg, "%Y%m%d"); salida.append(arg)
+print(" ".join(salida))
+PY
+)" || { echo "fecha inválida: use AAAAMMDD o AAAAMMDD-AAAAMMDD"; return 1; }
+    for fecha in $fechas; do
+        aviso "copiando /var/lib/registrador/*_$fecha.csv a $DATOS/borde/"
+        scp "$usuario@$host:/var/lib/registrador/*_$fecha.csv" "$DATOS/borde/" || { echo "sin archivo del $fecha en el borde"; continue; }
+        ls -l "$DATOS/borde/"*"_$fecha.csv"
+    done
 }
 
 # ---------- Captura ----------
@@ -467,11 +518,13 @@ case "$orden" in
     puente) actualizar_puente ;;
     registrador) actualizar_registrador ;;
     panel) actualizar_panel ;;
+    procesamiento) actualizar_procesamiento ;;
+    procesar) procesar_csv "$@" ;;
     comandos) instalar_comandos ;;
     comando) comando "$@" ;;
     corte) corte "${1:-120}" ;;
     ensayo) ensayo "${1:-90}" "${2:-120}" ;;
-    traer) traer "${1:-}" ;;
+    traer) traer "$@" ;;
     validar)
         [ $# -ge 1 ] || fallar "uso: $0 validar <archivo.csv> [opciones de validar_archivo.py]"
         # Rutas relativas: valen desde la carpeta actual o, si ahí no existen, desde la del proyecto.

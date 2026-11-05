@@ -1,0 +1,11 @@
+[Unit]
+Description=Corre el procesador cada 10 minutos
+
+[Timer]
+OnBootSec=3min
+OnCalendar=*:0/10
+AccuracySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

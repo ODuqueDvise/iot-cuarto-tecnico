@@ -1,0 +1,16 @@
+# Segunda fuente de datos de Grafana: lee el depósito procesado y el crudo con un token de solo lectura.
+# instalar_procesamiento.sh la copia con el token a /etc/grafana/provisioning/datasources/influx_procesado.yaml
+apiVersion: 1
+datasources:
+  - name: InfluxDB procesado
+    uid: influx-procesado
+    type: influxdb
+    access: proxy
+    url: http://localhost:8086
+    jsonData:
+      version: Flux
+      organization: cuarto
+      defaultBucket: cuarto_procesado
+    secureJsonData:
+      token: __TOKEN__
+    isDefault: false

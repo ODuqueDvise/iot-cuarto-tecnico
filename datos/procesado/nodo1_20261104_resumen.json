@@ -1,0 +1,55 @@
+{
+  "entrada": 2806,
+  "origen": {
+    "entrada": 2806,
+    "por_origen": {
+      "sensor": 2806
+    },
+    "salida": 2806
+  },
+  "duplicados": {
+    "duplicadas": 0
+  },
+  "rangos": {
+    "fuera_de_rango": {
+      "t": 0,
+      "hr": 0,
+      "i": 0,
+      "i_max": 0,
+      "retraso_ms": 0,
+      "pr": 0
+    }
+  },
+  "arranques": {
+    "arranques": 1,
+    "corriente_retirada": 3
+  },
+  "fallos": {
+    "fallo_sht31": 0,
+    "fallo_corriente": 1,
+    "fallo_agua": 0,
+    "sin_hora": 0,
+    "cuadricula": 1,
+    "tardias": 123
+  },
+  "huecos": {
+    "huecos": 0,
+    "muestras_faltantes": 0,
+    "apagados": 1,
+    "muestras_sin_registrar": 74
+  },
+  "agua": {
+    "agua_rebotes_suprimidos": 0
+  },
+  "derivados": {
+    "v_nominal": 120.0,
+    "energia_vah_total": 370.9
+  },
+  "salida": 2806,
+  "con_observaciones": 126,
+  "eventos": {
+    "entrega_tardia": 1,
+    "apagado": 1,
+    "arranque": 1
+  }
+}

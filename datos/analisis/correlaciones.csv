@@ -1,0 +1,6 @@
+,temperatura (°C),humedad relativa (%),punto de rocío (°C),corriente media (A),puerta abierta (0/1)
+temperatura (°C),1.0,-0.607,0.148,0.74,0.193
+humedad relativa (%),-0.607,1.0,0.696,-0.539,-0.137
+punto de rocío (°C),0.148,0.696,1.0,-0.008,0.006
+corriente media (A),0.74,-0.539,-0.008,1.0,0.23
+puerta abierta (0/1),0.193,-0.137,0.006,0.23,1.0

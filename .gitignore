@@ -1,6 +1,7 @@
 # Claves y secretos
 borde/certificados/salida/
 borde/puente/puente.env
+borde/procesamiento/procesador.env
 nodo/main/secretos.h
 nodo/main/certs/*
 !nodo/main/certs/LEEME.md
