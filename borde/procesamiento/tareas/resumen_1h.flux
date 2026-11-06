@@ -6,7 +6,7 @@ deposito = "cuarto_procesado"
 
 leer = (campos) =>
     from(bucket: deposito)
-        |> range(start: -3h)
+        |> range(start: -4h)
         |> filter(fn: (r) => r._measurement == "telemetria_5m")
         |> filter(fn: (r) => contains(value: r._field, set: campos))
 

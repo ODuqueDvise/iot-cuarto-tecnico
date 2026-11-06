@@ -15,7 +15,7 @@ El token del puente solo escribe en `cuarto`; el del procesador lee `cuarto` y e
 ```
 nodo --MQTT/TLS--> Mosquitto --> puente --> cuarto (crudo)
                                                  |
-                             cada 10 min: procesador.py (ventana de 30 min, idempotente)
+                             cada 10 min: procesador.py (ventana de 3 h, idempotente)
                                                  v
                               cuarto_procesado/telemetria_limpia + eventos + procesador
                                                  |
@@ -45,7 +45,7 @@ Pruebas: `python3 prueba_procesador.py` fija hechos conocidos de los CSV de `dat
 
 ## Tareas Flux (`borde/procesamiento/tareas/`)
 
-- `agregado_5m` (cada 5 min): media de `t`, `hr`, `pr`, `i`, `potencia_va`; máximos de `t`, `hr`, `i`; mínimos de `t`, `hr`; fracción de tiempo con puerta abierta y con agua; energía de la ventana; número de muestras.
+- `agregado_5m` (cada 5 min, relee 3 h 20 min): media de `t`, `hr`, `pr`, `i`, `potencia_va`; máximos de `t`, `hr`, `i`; mínimos de `t`, `hr`; fracción de tiempo con puerta abierta y con agua; energía de la ventana; número de muestras.
 - `resumen_1h` (cada hora): lo mismo por hora a partir de los agregados de 5 min.
 - `calidad_1h` (cada hora): muestras, faltantes, con observaciones, tardías y retraso máximo. Completitud = muestras / (muestras + faltantes).
 
@@ -62,7 +62,7 @@ influx task list
 influx query 'from(bucket:"cuarto_procesado") |> range(start:-2h) |> filter(fn:(r)=> r._measurement=="telemetria_5m" and r._field=="t") |> keep(columns:["_time","_value"])'
 ```
 
-Reprocesar un rango (por ejemplo, tras cambiar una regla): en la Pi,
+Reprocesar un rango (por ejemplo, tras cambiar una regla) y rehacer los agregados: en la Pi, `bash tareas/rehacer.sh <desde> <hasta>` tras
 `sudo -u puente /opt/procesador/.venv/bin/python /opt/procesador/procesador.py --influx --desde 2026-10-31T00:00:00 --hasta 2026-11-04T00:00:00 --config /etc/puente/procesador.env`. La escritura es idempotente: las mismas marcas de tiempo se sobrescriben.
 
 ## Análisis fuera de línea (`borde/procesamiento/analisis.py`)

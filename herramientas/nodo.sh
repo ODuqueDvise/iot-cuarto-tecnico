@@ -347,7 +347,7 @@ actualizar_procesamiento() {
     scp -q "$origen"/procesador.py "$origen"/prueba_procesador.py "$origen"/procesador.service \
         "$origen"/procesador.timer "$origen"/procesador.env.ejemplo "$origen"/requirements.txt \
         "$origen"/instalar_procesamiento.sh "$usuario@$host:/tmp/procesamiento_nuevo/"
-    scp -q "$origen"/tareas/*.flux "$usuario@$host:/tmp/procesamiento_nuevo/tareas/"
+    scp -q "$origen"/tareas/*.flux "$origen"/tareas/rehacer.sh "$usuario@$host:/tmp/procesamiento_nuevo/tareas/"
     scp -q "$REPO/borde/grafana/procesado.json" "$REPO/borde/grafana/datasource_procesado.yaml" \
         "$usuario@$host:/tmp/procesamiento_nuevo/grafana/"
     aviso "instalando (sudo puede pedir la contraseña de la Pi)"

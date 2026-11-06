@@ -7,7 +7,7 @@ deposito = "cuarto_procesado"
 
 leer = (campo) =>
     from(bucket: deposito)
-        |> range(start: -3h)
+        |> range(start: -4h)
         |> filter(fn: (r) => r._measurement == "telemetria_limpia" and r._field == campo)
 
 escribir = (tablas=<-) =>

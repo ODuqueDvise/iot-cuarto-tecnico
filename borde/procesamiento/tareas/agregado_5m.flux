@@ -1,5 +1,5 @@
 // Agregados de 5 min sobre la telemetría limpia. Corre cada 5 min con 2 min de margen para que el
-// procesador haya escrito; relee 20 min para rellenar ventanas que hubieran quedado incompletas (la
+// procesador haya escrito; relee 3 h 20 min, el horizonte de la cola del nodo, para incorporar muestras entregadas tarde (la
 // escritura en InfluxDB es idempotente por serie y marca de tiempo).
 //
 // Cada grupo de campos se lee con su propio from(): en Flux una misma variable no puede usarse con
@@ -11,7 +11,7 @@ ventana = 5m
 
 leer = (campos) =>
     from(bucket: deposito)
-        |> range(start: -20m)
+        |> range(start: -3h20m)
         |> filter(fn: (r) => r._measurement == "telemetria_limpia")
         |> filter(fn: (r) => contains(value: r._field, set: campos))
 

@@ -6,6 +6,6 @@ After=influxdb.service
 Type=oneshot
 User=puente
 Group=puente
-ExecStart=/opt/procesador/.venv/bin/python /opt/procesador/procesador.py --influx --ventana 30m --config /etc/puente/procesador.env
+ExecStart=/opt/procesador/.venv/bin/python /opt/procesador/procesador.py --influx --ventana 3h --config /etc/puente/procesador.env
 MemoryMax=256M
 Nice=10
