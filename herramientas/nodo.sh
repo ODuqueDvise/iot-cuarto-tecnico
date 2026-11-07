@@ -19,6 +19,7 @@
 #   nodo.sh procesamiento        prueba el procesador con los CSV del repositorio y lo instala en la Pi
 #                                (depósito procesado, token, temporizador y tareas Flux)
 #   nodo.sh procesar <csv> [dir] corre el procesador en el Mac sobre un CSV y deja la salida en dir
+#   nodo.sh operacion            genera, prueba e instala en la Pi el tablero de operación y las alertas por correo
 #   nodo.sh comandos             instala en la Pi la herramienta de comandos y la lista de control nueva
 #   nodo.sh comando '<json>'     envía un comando al nodo y espera la respuesta (ej. '{"periodo": 10}')
 #   nodo.sh corte [segundos]     detiene Mosquitto en la Pi durante N s (120 por defecto) para probar la cola
@@ -382,6 +383,23 @@ actualizar_panel() {
     echo "Tablero: http://$host:3000/d/nodo-sensor"
 }
 
+# Genera el tablero de operación y las alertas, los copia a la Pi y corre instalar_operacion.sh, que prueba cada
+# consulta contra InfluxDB antes de instalar. Las alertas se instalan solo si existe /etc/grafana/correo.env en la Pi.
+actualizar_operacion() {
+    local host usuario="${BORDE_USUARIO:-odukec}"
+    host="$(host_borde)"
+    local origen="$REPO/borde/grafana"
+    aviso "generando el tablero y las alertas"
+    python3 "$origen/generar_operacion.py"
+    aviso "copiando a $usuario@$host"
+    ssh "$usuario@$host" 'rm -rf /tmp/operacion_nueva && mkdir -p /tmp/operacion_nueva'
+    scp -q "$origen/operacion.json" "$origen/procesado.json" "$origen/alertas.yaml" "$origen/consultas_alertas.json" \
+        "$origen/probar_consultas.py" "$origen/correo.conf" "$origen/correo.env.ejemplo" "$origen/instalar_operacion.sh" \
+        "$usuario@$host:/tmp/operacion_nueva/"
+    aviso "probando las consultas e instalando (sudo puede pedir la contraseña de la Pi)"
+    ssh -t "$usuario@$host" 'bash /tmp/operacion_nueva/instalar_operacion.sh'
+}
+
 # Corte controlado del intermediario: el nodo debe retener las muestras y enviarlas al volver.
 corte() {
     local host usuario="${BORDE_USUARIO:-odukec}" s="${1:-120}"
@@ -520,6 +538,7 @@ case "$orden" in
     panel) actualizar_panel ;;
     procesamiento) actualizar_procesamiento ;;
     procesar) procesar_csv "$@" ;;
+    operacion) actualizar_operacion ;;
     comandos) instalar_comandos ;;
     comando) comando "$@" ;;
     corte) corte "${1:-120}" ;;

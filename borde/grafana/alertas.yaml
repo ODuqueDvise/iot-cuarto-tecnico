@@ -1,0 +1,313 @@
+# Generado por generar_operacion.py. instalar_operacion.sh reemplaza __CORREO_DESTINO__ y lo copia a
+# /etc/grafana/provisioning/alerting/cuarto.yaml (640, root:grafana).
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: cuarto_tecnico
+    folder: Cuarto técnico
+    interval: 30s
+    rules:
+      - uid: cuarto-agua
+        title: "Agua en el piso del cuarto técnico"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 65
+              to: 0
+            datasourceUid: influx-procesado
+            model:
+              refId: A
+              intervalMs: 30000
+              maxDataPoints: 43200
+              query: |
+                from(bucket: "cuarto")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "telemetria" and r._field == "agua")
+                  |> map(fn: (r) => ({r with _value: if r._value then 1.0 else 0.0}))
+                  |> group(columns: ["nodo"])
+                  |> keep(columns: ["_time", "_value", "nodo"])
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: min
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.5]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        isPaused: false
+        annotations:
+          summary: "Agua detectada en {{ $labels.nodo }} en dos muestras seguidas. Ir al cuarto de inmediato: posible filtración sobre los equipos."
+          dashboardUId: operacion
+        labels:
+          severidad: critica
+      - uid: cuarto-nodo
+        title: "Nodo sin datos"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: influx-procesado
+            model:
+              refId: A
+              intervalMs: 30000
+              maxDataPoints: 43200
+              query: |
+                from(bucket: "cuarto")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "telemetria" and r._field == "seq")
+                  |> group(columns: ["nodo"])
+                  |> last()
+                  |> map(fn: (r) => ({_time: r._time, nodo: r.nodo, _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0}))
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [90]
+        noDataState: Alerting
+        execErrState: Error
+        for: 0s
+        isPaused: false
+        annotations:
+          summary: "{{ $labels.nodo }} no envía muestras hace {{ printf \"%.0f\" $values.B.Value }} s. El tablero ya no refleja el cuarto: revisar alimentación, Wi-Fi y borde."
+          dashboardUId: operacion
+        labels:
+          severidad: critica
+      - uid: cuarto-temperatura
+        title: "Temperatura sobre 27 °C"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: influx-procesado
+            model:
+              refId: A
+              intervalMs: 30000
+              maxDataPoints: 43200
+              query: |
+                from(bucket: "cuarto")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "telemetria" and r._field == "t")
+                  |> group(columns: ["nodo"])
+                  |> keep(columns: ["_time", "_value", "nodo"])
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: mean
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [27]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        isPaused: false
+        annotations:
+          summary: "Temperatura media de 5 min en {{ $labels.nodo }}: {{ printf \"%.1f\" $values.B.Value }} °C. Revisar el aire acondicionado y la carga del rack."
+          dashboardUId: operacion
+        labels:
+          severidad: alta
+      - uid: cuarto-humedad
+        title: "Humedad relativa sobre 60 %"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: influx-procesado
+            model:
+              refId: A
+              intervalMs: 30000
+              maxDataPoints: 43200
+              query: |
+                from(bucket: "cuarto")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "telemetria" and r._field == "hr")
+                  |> group(columns: ["nodo"])
+                  |> keep(columns: ["_time", "_value", "nodo"])
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: mean
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [60]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        isPaused: false
+        annotations:
+          summary: "HR media de 5 min en {{ $labels.nodo }}: {{ printf \"%.1f\" $values.B.Value }} %. Revisar deshumidificación y filtraciones."
+          dashboardUId: operacion
+        labels:
+          severidad: alta
+      - uid: cuarto-rocio
+        title: "Punto de rocío sobre 15 °C"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: influx-procesado
+            model:
+              refId: A
+              intervalMs: 30000
+              maxDataPoints: 43200
+              query: |
+                from(bucket: "cuarto")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "telemetria" and r._field == "pr")
+                  |> group(columns: ["nodo"])
+                  |> keep(columns: ["_time", "_value", "nodo"])
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: mean
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [15]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        isPaused: false
+        annotations:
+          summary: "Punto de rocío medio de 5 min en {{ $labels.nodo }}: {{ printf \"%.1f\" $values.B.Value }} °C. Riesgo de condensación."
+          dashboardUId: operacion
+        labels:
+          severidad: alta
+      - uid: cuarto-puerta
+        title: "Puerta abierta más de 10 min"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: influx-procesado
+            model:
+              refId: A
+              intervalMs: 30000
+              maxDataPoints: 43200
+              query: |
+                from(bucket: "cuarto")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "telemetria" and r._field == "puerta")
+                  |> map(fn: (r) => ({r with _value: if r._value then 1.0 else 0.0}))
+                  |> group(columns: ["nodo"])
+                  |> keep(columns: ["_time", "_value", "nodo"])
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: min
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.5]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        isPaused: false
+        annotations:
+          summary: "La puerta del cuarto ({{ $labels.nodo }}) lleva más de 10 min abierta. Confirmar si hay una intervención en curso."
+          dashboardUId: operacion
+        labels:
+          severidad: media
+contactPoints:
+  - orgId: 1
+    name: Correo del cuarto técnico
+    receivers:
+      - uid: correo-cuarto
+        type: email
+        settings:
+          addresses: __CORREO_DESTINO__
+          singleEmail: true
+        disableResolveMessage: false
+policies:
+  - orgId: 1
+    receiver: Correo del cuarto técnico
+    group_by:
+      - alertname
+      - nodo
+    group_wait: 10s
+    group_interval: 1m
+    repeat_interval: 4h

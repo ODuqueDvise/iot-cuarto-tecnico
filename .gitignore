@@ -2,6 +2,7 @@
 borde/certificados/salida/
 borde/puente/puente.env
 borde/procesamiento/procesador.env
+borde/grafana/correo.env
 nodo/main/secretos.h
 nodo/main/certs/*
 !nodo/main/certs/LEEME.md

@@ -92,6 +92,7 @@ panels = [
           ['from(bucket: "cuarto_procesado")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n'
            f'  |> filter(fn: (r) => r._measurement == "eventos" and r.nodo == {NODO})\n'
            '  |> filter(fn: (r) => r._field == "duracion_s")\n'
+           '  |> group()\n'
            '  |> keep(columns: ["_time", "tipo", "_value"])\n'
            '  |> rename(columns: {_time: "inicio", _value: "duración (s)"})\n'
            '  |> sort(columns: ["inicio"], desc: true)'], "none",

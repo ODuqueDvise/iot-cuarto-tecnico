@@ -1,0 +1,2032 @@
+{
+ "uid": "operacion",
+ "title": "Operación del cuarto técnico",
+ "tags": [
+  "iot",
+  "operacion"
+ ],
+ "description": "Actividad 5: tablero para decidir. Franja 1, qué pasa ahora; franja 2, últimas 24 h; franja 3, análisis del periodo elegido.",
+ "timezone": "America/Bogota",
+ "editable": true,
+ "refresh": "30s",
+ "schemaVersion": 39,
+ "version": 1,
+ "time": {
+  "from": "now-7d",
+  "to": "now"
+ },
+ "graphTooltip": 1,
+ "liveNow": false,
+ "timepicker": {
+  "refresh_intervals": [
+   "10s",
+   "30s",
+   "1m",
+   "5m"
+  ]
+ },
+ "annotations": {
+  "list": [
+   {
+    "name": "Eventos (puerta, agua, apagados, huecos)",
+    "datasource": {
+     "type": "influxdb",
+     "uid": "influx-procesado"
+    },
+    "enable": true,
+    "iconColor": "purple",
+    "target": {
+     "refId": "Anno",
+     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"eventos\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r.tipo == \"puerta_abierta\" or r.tipo == \"agua\" or r.tipo == \"apagado\" or r.tipo == \"hueco\")\n  |> filter(fn: (r) => r._field == \"fin\")\n  |> group()\n  |> map(fn: (r) => ({time: r._time, timeEnd: time(v: r._value * 1000000000), text: r.tipo, tags: r.tipo}))"
+    },
+    "filter": {
+     "exclude": false,
+     "ids": [
+      12,
+      13,
+      14,
+      15
+     ]
+    }
+   }
+  ]
+ },
+ "templating": {
+  "list": [
+   {
+    "name": "nodo",
+    "label": "Nodo",
+    "type": "query",
+    "datasource": {
+     "type": "influxdb",
+     "uid": "influx-procesado"
+    },
+    "refresh": 1,
+    "hide": 0,
+    "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"cuarto\", tag: \"nodo\")",
+    "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"cuarto\", tag: \"nodo\")",
+    "current": {
+     "text": "nodo1",
+     "value": "nodo1"
+    },
+    "options": [],
+    "sort": 1,
+    "includeAll": false,
+    "multi": false
+   }
+  ]
+ },
+ "panels": [
+  {
+   "id": 1,
+   "type": "row",
+   "title": "Ahora: último valor de cada variable (crudo, últimos 15 min)",
+   "collapsed": false,
+   "panels": [],
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 1
+   }
+  },
+  {
+   "id": 2,
+   "type": "stat",
+   "title": "Temperatura",
+   "description": "¿Está el cuarto dentro de 18 a 27 °C (ASHRAE)? Rojo: revisar el aire acondicionado y la carga del rack.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "decimals": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 18
+       },
+       {
+        "color": "red",
+        "value": 27
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"telemetria\" and r.nodo == \"${nodo}\" and r._field == \"t\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])"
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "type": "stat",
+   "title": "Humedad relativa",
+   "description": "¿Supera el 60 %? Es la variable con menos margen: en la línea base llegó a 59,8 %.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "humidity",
+     "decimals": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 60
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"telemetria\" and r.nodo == \"${nodo}\" and r._field == \"hr\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])"
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "type": "stat",
+   "title": "Punto de rocío",
+   "description": "Sobre 15 °C aumenta el riesgo de condensación en los equipos.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "decimals": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 15
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"telemetria\" and r.nodo == \"${nodo}\" and r._field == \"pr\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])"
+    }
+   ]
+  },
+  {
+   "id": 5,
+   "type": "stat",
+   "title": "Potencia aparente",
+   "description": "Corriente del circuito del rack por 120 V nominales. Sin factor de potencia conocido, no son vatios.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "voltamp",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "text",
+        "value": null
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"telemetria\" and r.nodo == \"${nodo}\" and r._field == \"i\")\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: r._value * 120.0}))"
+    }
+   ]
+  },
+  {
+   "id": 6,
+   "type": "stat",
+   "title": "Puerta",
+   "description": "Abierta en ámbar. Si sigue abierta más de 10 min, llega un correo.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 5,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "Cerrada",
+         "color": "green",
+         "index": 0
+        },
+        "1": {
+         "text": "Abierta",
+         "color": "orange",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"telemetria\" and r.nodo == \"${nodo}\" and r._field == \"puerta\")\n  |> last()\n  |> map(fn: (r) => ({r with _value: if r._value then 1 else 0}))\n  |> keep(columns: [\"_time\", \"_value\"])"
+    }
+   ]
+  },
+  {
+   "id": 7,
+   "type": "stat",
+   "title": "Agua en el piso",
+   "description": "AGUA en rojo: ir de inmediato, posible filtración sobre los equipos. El correo sale con dos muestras seguidas.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 5,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "Seco",
+         "color": "green",
+         "index": 0
+        },
+        "1": {
+         "text": "AGUA",
+         "color": "red",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"telemetria\" and r.nodo == \"${nodo}\" and r._field == \"agua\")\n  |> last()\n  |> map(fn: (r) => ({r with _value: if r._value then 1 else 0}))\n  |> keep(columns: [\"_time\", \"_value\"])"
+    }
+   ]
+  },
+  {
+   "id": 8,
+   "type": "stat",
+   "title": "Última muestra del nodo",
+   "description": "Segundos desde la última muestra. Más de 90 s: el nodo, la red o el borde fallaron, y el resto del tablero ya no es confiable.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 5,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "decimals": 0,
+     "noValue": "sin datos en 24 h",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 90
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"telemetria\" and r.nodo == \"${nodo}\" and r._field == \"seq\")\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0}))"
+    }
+   ]
+  },
+  {
+   "id": 9,
+   "type": "stat",
+   "title": "Energía aparente de hoy",
+   "description": "Desde la medianoche, sobre el nivel procesado (se actualiza cada 10 min).",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 5,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "VA·h",
+     "decimals": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "text",
+        "value": null
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "dia = 86400000000000\ndesfase = 18000000000000\ninicio = time(v: (int(v: now()) - desfase) / dia * dia + desfase)\nfrom(bucket: \"cuarto_procesado\")\n  |> range(start: inicio)\n  |> filter(fn: (r) => r._measurement == \"telemetria_limpia\" and r.nodo == \"${nodo}\" and r._field == \"energia_vah\")\n  |> sum()\n  |> keep(columns: [\"_value\"])"
+    }
+   ]
+  },
+  {
+   "id": 10,
+   "type": "alertlist",
+   "title": "Alertas (se envían por correo)",
+   "description": "Estado de las seis reglas. Normal en verde; en curso o disparada en rojo.",
+   "gridPos": {
+    "x": 16,
+    "y": 1,
+    "w": 8,
+    "h": 8
+   },
+   "options": {
+    "viewMode": "list",
+    "groupMode": "default",
+    "groupBy": [],
+    "maxItems": 10,
+    "sortOrder": 1,
+    "dashboardAlerts": false,
+    "alertName": "",
+    "alertInstanceLabelFilter": "",
+    "folder": null,
+    "showInstances": false,
+    "stateFilter": {
+     "firing": true,
+     "pending": true,
+     "noData": true,
+     "normal": true,
+     "error": true
+    }
+   }
+  },
+  {
+   "id": 11,
+   "type": "row",
+   "title": "Últimas 24 horas: tendencia en tiempo real (crudo). Zonas rojas: fuera de la recomendación ASHRAE",
+   "collapsed": false,
+   "panels": [],
+   "gridPos": {
+    "x": 0,
+    "y": 9,
+    "w": 24,
+    "h": 1
+   }
+  },
+  {
+   "id": 12,
+   "type": "timeseries",
+   "title": "Temperatura (°C)",
+   "description": "Escala fija de 15 a 30 °C para ver el margen hasta el límite; la variación fina está en el análisis.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 10,
+    "w": 8,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false,
+      "thresholdsStyle": {
+       "mode": "line+area"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 15,
+     "max": 30,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "rgba(87, 148, 242, 0.18)",
+        "value": null
+       },
+       {
+        "color": "transparent",
+        "value": 18
+       },
+       {
+        "color": "rgba(242, 73, 92, 0.18)",
+        "value": 27
+       }
+      ]
+     },
+     "decimals": 1
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": false
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r._field == \"t\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"_field\"])"
+    }
+   ],
+   "timeFrom": "24h"
+  },
+  {
+   "id": 13,
+   "type": "timeseries",
+   "title": "Humedad relativa (%)",
+   "description": "Escala fija de 30 a 80 %.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 10,
+    "w": 8,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "humidity",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false,
+      "thresholdsStyle": {
+       "mode": "line+area"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 30,
+     "max": 80,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "rgba(242, 73, 92, 0.18)",
+        "value": 60
+       }
+      ]
+     },
+     "decimals": 1
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": false
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r._field == \"hr\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"_field\"])"
+    }
+   ],
+   "timeFrom": "24h"
+  },
+  {
+   "id": 14,
+   "type": "timeseries",
+   "title": "Punto de rocío (°C)",
+   "description": "Escala fija de 5 a 20 °C.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 10,
+    "w": 8,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false,
+      "thresholdsStyle": {
+       "mode": "line+area"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 5,
+     "max": 20,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "rgba(242, 73, 92, 0.18)",
+        "value": 15
+       }
+      ]
+     },
+     "decimals": 1
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": false
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r._field == \"pr\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"_field\"])"
+    }
+   ],
+   "timeFrom": "24h"
+  },
+  {
+   "id": 15,
+   "type": "timeseries",
+   "title": "Potencia aparente (VA)",
+   "description": "Cada escalón es un equipo que enciende o apaga en el circuito del rack.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 18,
+    "w": 12,
+    "h": 7
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "voltamp",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false,
+      "thresholdsStyle": {
+       "mode": "off"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0,
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": false
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria\" and r.nodo == \"${nodo}\" and r._field == \"i\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({_time: r._time, _value: r._value * 120.0, _field: \"potencia aparente\"}))"
+    }
+   ],
+   "timeFrom": "24h"
+  },
+  {
+   "id": 16,
+   "type": "state-timeline",
+   "title": "Puerta y agua",
+   "description": "Cuándo y cuánto tiempo estuvo abierta la puerta o hubo agua.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 18,
+    "w": 12,
+    "h": 7
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "cerrada / seco",
+         "color": "green",
+         "index": 0
+        },
+        "1": {
+         "text": "abierta / agua",
+         "color": "red",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "custom": {
+      "fillOpacity": 80,
+      "lineWidth": 0
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "showValue": "never",
+    "rowHeight": 0.8,
+    "mergeValues": true,
+    "alignValue": "left",
+    "legend": {
+     "showLegend": false,
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria\" and r.nodo == \"${nodo}\" and r._field == \"puerta\")\n  |> map(fn: (r) => ({_time: r._time, _value: if r._value then 1 else 0, _field: \"Puerta\"}))"
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria\" and r.nodo == \"${nodo}\" and r._field == \"agua\")\n  |> map(fn: (r) => ({_time: r._time, _value: if r._value then 1 else 0, _field: \"Agua\"}))"
+    }
+   ],
+   "timeFrom": "24h"
+  },
+  {
+   "id": 17,
+   "type": "row",
+   "title": "Análisis del periodo seleccionado arriba a la derecha (nivel procesado: datos limpios)",
+   "collapsed": false,
+   "panels": [],
+   "gridPos": {
+    "x": 0,
+    "y": 25,
+    "w": 24,
+    "h": 1
+   }
+  },
+  {
+   "id": 18,
+   "type": "stat",
+   "title": "Muestras válidas",
+   "description": "Muestras de telemetria_limpia en el periodo (una cada 30 s).",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 26,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "text",
+        "value": null
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_limpia\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r._field == \"seq\")\n  |> count()\n  |> keep(columns: [\"_value\"])"
+    }
+   ]
+  },
+  {
+   "id": 19,
+   "type": "stat",
+   "title": "Completitud",
+   "description": "Muestras recibidas sobre esperadas, por hora (tarea calidad_1h). Bajo 95 %: las conclusiones pierden peso.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 26,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "decimals": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 95
+       },
+       {
+        "color": "green",
+        "value": 99
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"calidad_1h\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r._field == \"muestras\" or r._field == \"faltantes\")\n  |> keep(columns: [\"_field\", \"_value\"])\n  |> group()\n  |> reduce(identity: {m: 0.0, f: 0.0}, fn: (r, accumulator) => ({\n      m: if r._field == \"muestras\" then accumulator.m + float(v: r._value) else accumulator.m,\n      f: if r._field == \"faltantes\" then accumulator.f + float(v: r._value) else accumulator.f}))\n  |> map(fn: (r) => ({_value: if r.m + r.f > 0.0 then 100.0 * r.m / (r.m + r.f) else 0.0}))"
+    }
+   ]
+  },
+  {
+   "id": 20,
+   "type": "stat",
+   "title": "Temperatura en 18–27 °C",
+   "description": "Porcentaje del tiempo dentro de la recomendación.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 26,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "decimals": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 99.9
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_limpia\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r._field == \"t\")\n  |> map(fn: (r) => ({r with _value: if r._value >= 18.0 and r._value <= 27.0 then 100.0 else 0.0}))\n  |> mean()\n  |> keep(columns: [\"_value\"])"
+    }
+   ]
+  },
+  {
+   "id": 21,
+   "type": "stat",
+   "title": "HR hasta 60 %",
+   "description": "Porcentaje del tiempo dentro de la recomendación.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 26,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "decimals": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 99.9
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_limpia\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r._field == \"hr\")\n  |> map(fn: (r) => ({r with _value: if r._value <= 60.0 then 100.0 else 0.0}))\n  |> mean()\n  |> keep(columns: [\"_value\"])"
+    }
+   ]
+  },
+  {
+   "id": 22,
+   "type": "stat",
+   "title": "Rocío hasta 15 °C",
+   "description": "Porcentaje del tiempo dentro de la recomendación.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 26,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "decimals": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 99.9
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_limpia\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r._field == \"pr\")\n  |> map(fn: (r) => ({r with _value: if r._value <= 15.0 then 100.0 else 0.0}))\n  |> mean()\n  |> keep(columns: [\"_value\"])"
+    }
+   ]
+  },
+  {
+   "id": 23,
+   "type": "stat",
+   "title": "Ventanas inusuales de temperatura",
+   "description": "Ventanas de 5 min fuera de media ± 3 desviaciones del periodo: anomalías estadísticas, aunque estén dentro de la norma.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 20,
+    "y": 26,
+    "w": 4,
+    "h": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "datos = from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_5m\" and r.nodo == \"${nodo}\" and r._field == \"t\")\n  |> keep(columns: [\"_time\", \"_value\"])\n\nm = (datos |> mean() |> findRecord(fn: (key) => true, idx: 0))._value\ns = (datos |> stddev() |> findRecord(fn: (key) => true, idx: 0))._value\n\ndatos\n  |> map(fn: (r) => ({r with _value: if r._value > m + 3.0 * s or r._value < m - 3.0 * s then 1 else 0}))\n  |> sum()\n  |> keep(columns: [\"_value\"])"
+    }
+   ]
+  },
+  {
+   "id": 24,
+   "type": "table",
+   "title": "Estadística descriptiva",
+   "description": "Resumen del periodo por variable. La moda no se incluye: con decimales casi no se repiten valores.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 30,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "decimals": 2,
+     "custom": {
+      "align": "auto",
+      "cellOptions": {
+       "type": "auto"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Corriente (A)"
+      },
+      "properties": [
+       {
+        "id": "decimals",
+        "value": 3
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": false
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "datos = from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_limpia\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r._field == \"t\" or r._field == \"hr\" or r._field == \"pr\" or r._field == \"i\")\n  |> keep(columns: [\"_time\", \"_field\", \"_value\"])\n  |> group(columns: [\"_field\"])\n\nest = (tablas, nombre, orden) => tablas\n  |> keep(columns: [\"_field\", \"_value\"])\n  |> map(fn: (r) => ({_field: r._field, _value: float(v: r._value), estadistico: nombre, orden: orden}))\n\nrango = datos\n  |> reduce(identity: {mx: -1000000.0, mn: 1000000.0}, fn: (r, accumulator) => ({\n      mx: if r._value > accumulator.mx then r._value else accumulator.mx,\n      mn: if r._value < accumulator.mn then r._value else accumulator.mn}))\n  |> map(fn: (r) => ({_field: r._field, _value: r.mx - r.mn}))\n\nunion(tables: [\n    est(tablas: datos |> mean(), nombre: \"Media\", orden: 1),\n    est(tablas: datos |> median(method: \"exact_mean\"), nombre: \"Mediana\", orden: 2),\n    est(tablas: datos |> stddev(), nombre: \"Desviación estándar\", orden: 3),\n    est(tablas: datos |> min(), nombre: \"Mínimo\", orden: 4),\n    est(tablas: datos |> max(), nombre: \"Máximo\", orden: 5),\n    est(tablas: rango, nombre: \"Rango\", orden: 6),\n])\n  |> group()\n  |> pivot(rowKey: [\"orden\", \"estadistico\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> sort(columns: [\"orden\"])\n  |> drop(columns: [\"orden\"])"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "indexByName": {
+       "estadistico": 0,
+       "t": 1,
+       "hr": 2,
+       "pr": 3,
+       "i": 4
+      },
+      "renameByName": {
+       "t": "Temperatura (°C)",
+       "hr": "HR (%)",
+       "pr": "Punto de rocío (°C)",
+       "i": "Corriente (A)",
+       "estadistico": "Estadístico"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": 25,
+   "type": "table",
+   "title": "Correlación de Pearson entre variables",
+   "description": "Sobre las medias de 5 min. De −1 (azul, una sube cuando la otra baja) a +1 (rojo, suben juntas). Correlación no es causalidad.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 30,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "decimals": 2,
+     "min": -1,
+     "max": 1,
+     "color": {
+      "mode": "continuous-BlYlRd"
+     },
+     "custom": {
+      "align": "center",
+      "cellOptions": {
+       "type": "color-background",
+       "mode": "basic"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Variable"
+      },
+      "properties": [
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "auto"
+        }
+       },
+       {
+        "id": "custom.align",
+        "value": "left"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": false
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "import \"array\"\nimport \"math\"\n\npearson = (sxy, sx, sy, sxx, syy, n) => (n * sxy - sx * sy) / math.sqrt(x: (n * sxx - sx * sx) * (n * syy - sy * sy))\n\ns = from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_5m\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r._field == \"t\" or r._field == \"hr\" or r._field == \"pr\" or r._field == \"i\")\n  |> keep(columns: [\"_time\", \"_field\", \"_value\"])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.t and exists r.hr and exists r.pr and exists r.i)\n  |> reduce(identity: {n: 0.0, st: 0.0, shr: 0.0, spr: 0.0, si: 0.0, qt: 0.0, qhr: 0.0, qpr: 0.0, qi: 0.0, pthr: 0.0, ptpr: 0.0, pti: 0.0, phrpr: 0.0, phri: 0.0, ppri: 0.0}, fn: (r, accumulator) => ({\n      n: accumulator.n + 1.0,\n      st: accumulator.st + r.t,\n      shr: accumulator.shr + r.hr,\n      spr: accumulator.spr + r.pr,\n      si: accumulator.si + r.i,\n      qt: accumulator.qt + r.t * r.t,\n      qhr: accumulator.qhr + r.hr * r.hr,\n      qpr: accumulator.qpr + r.pr * r.pr,\n      qi: accumulator.qi + r.i * r.i,\n      pthr: accumulator.pthr + r.t * r.hr,\n      ptpr: accumulator.ptpr + r.t * r.pr,\n      pti: accumulator.pti + r.t * r.i,\n      phrpr: accumulator.phrpr + r.hr * r.pr,\n      phri: accumulator.phri + r.hr * r.i,\n      ppri: accumulator.ppri + r.pr * r.i}))\n  |> findRecord(fn: (key) => true, idx: 0)\n\narray.from(rows: [\n    {fila: \"Temperatura\", t: 1.0, hr: pearson(sxy: s.pthr, sx: s.st, sy: s.shr, sxx: s.qt, syy: s.qhr, n: s.n), pr: pearson(sxy: s.ptpr, sx: s.st, sy: s.spr, sxx: s.qt, syy: s.qpr, n: s.n), i: pearson(sxy: s.pti, sx: s.st, sy: s.si, sxx: s.qt, syy: s.qi, n: s.n)},\n    {fila: \"HR\", t: pearson(sxy: s.pthr, sx: s.st, sy: s.shr, sxx: s.qt, syy: s.qhr, n: s.n), hr: 1.0, pr: pearson(sxy: s.phrpr, sx: s.shr, sy: s.spr, sxx: s.qhr, syy: s.qpr, n: s.n), i: pearson(sxy: s.phri, sx: s.shr, sy: s.si, sxx: s.qhr, syy: s.qi, n: s.n)},\n    {fila: \"Punto de rocío\", t: pearson(sxy: s.ptpr, sx: s.st, sy: s.spr, sxx: s.qt, syy: s.qpr, n: s.n), hr: pearson(sxy: s.phrpr, sx: s.shr, sy: s.spr, sxx: s.qhr, syy: s.qpr, n: s.n), pr: 1.0, i: pearson(sxy: s.ppri, sx: s.spr, sy: s.si, sxx: s.qpr, syy: s.qi, n: s.n)},\n    {fila: \"Corriente\", t: pearson(sxy: s.pti, sx: s.st, sy: s.si, sxx: s.qt, syy: s.qi, n: s.n), hr: pearson(sxy: s.phri, sx: s.shr, sy: s.si, sxx: s.qhr, syy: s.qi, n: s.n), pr: pearson(sxy: s.ppri, sx: s.spr, sy: s.si, sxx: s.qpr, syy: s.qi, n: s.n), i: 1.0},\n])"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "indexByName": {
+       "fila": 0,
+       "t": 1,
+       "hr": 2,
+       "pr": 3,
+       "i": 4
+      },
+      "renameByName": {
+       "fila": "Variable",
+       "t": "Temperatura",
+       "hr": "HR",
+       "pr": "Punto de rocío",
+       "i": "Corriente"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": 26,
+   "type": "barchart",
+   "title": "Perfil por hora del día: temperatura media (°C)",
+   "description": "Promedio de cada hora local sobre todos los días del periodo: muestra el ciclo diario.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 38,
+    "w": 8,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "decimals": 1,
+     "min": 20,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "red"
+     },
+     "custom": {
+      "fillOpacity": 70,
+      "lineWidth": 0
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "orientation": "vertical",
+    "xField": "hora",
+    "showValue": "never",
+    "stacking": "none",
+    "groupWidth": 0.8,
+    "barWidth": 0.9,
+    "xTickLabelRotation": 0,
+    "xTickLabelSpacing": 0,
+    "legend": {
+     "showLegend": false,
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_5m\" and r.nodo == \"${nodo}\" and r._field == \"t\")\n  |> map(fn: (r) => ({r with hora: (int(v: r._time) / 3600000000000 + 19) % 24}))\n  |> keep(columns: [\"hora\", \"_value\"])\n  |> group(columns: [\"hora\"])\n  |> mean()\n  |> group()\n  |> sort(columns: [\"hora\"])\n  |> map(fn: (r) => ({hora: if r.hora < 10 then \"0\" + string(v: r.hora) else string(v: r.hora), media: r._value}))"
+    }
+   ]
+  },
+  {
+   "id": 27,
+   "type": "barchart",
+   "title": "Perfil por hora del día: humedad relativa media (%)",
+   "description": "Promedio de cada hora local sobre todos los días del periodo.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 38,
+    "w": 8,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "humidity",
+     "decimals": 1,
+     "min": 40,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "blue"
+     },
+     "custom": {
+      "fillOpacity": 70,
+      "lineWidth": 0
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "orientation": "vertical",
+    "xField": "hora",
+    "showValue": "never",
+    "stacking": "none",
+    "groupWidth": 0.8,
+    "barWidth": 0.9,
+    "xTickLabelRotation": 0,
+    "xTickLabelSpacing": 0,
+    "legend": {
+     "showLegend": false,
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_5m\" and r.nodo == \"${nodo}\" and r._field == \"hr\")\n  |> map(fn: (r) => ({r with hora: (int(v: r._time) / 3600000000000 + 19) % 24}))\n  |> keep(columns: [\"hora\", \"_value\"])\n  |> group(columns: [\"hora\"])\n  |> mean()\n  |> group()\n  |> sort(columns: [\"hora\"])\n  |> map(fn: (r) => ({hora: if r.hora < 10 then \"0\" + string(v: r.hora) else string(v: r.hora), media: r._value}))"
+    }
+   ]
+  },
+  {
+   "id": 28,
+   "type": "histogram",
+   "title": "Distribución de la temperatura (muestras limpias)",
+   "description": "Cuántas muestras cayeron en cada intervalo de 0,1 °C.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 38,
+    "w": 8,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "red"
+     },
+     "custom": {
+      "fillOpacity": 70,
+      "lineWidth": 1
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "bucketSize": 0.1,
+    "bucketOffset": 0,
+    "combine": false,
+    "legend": {
+     "showLegend": false,
+     "displayMode": "list",
+     "placement": "bottom"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_limpia\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r._field == \"t\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> map(fn: (r) => ({_time: r._time, temperatura: r._value}))"
+    }
+   ]
+  },
+  {
+   "id": 29,
+   "type": "timeseries",
+   "title": "Anomalías: temperatura (media de 5 min) y banda de media ± 3σ",
+   "description": "Lo que sale de la banda es inusual para este cuarto aunque esté dentro de la norma ASHRAE.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 46,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "thresholdsStyle": {
+       "mode": "off"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "decimals": 2
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "limite_superior"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "media + 3σ"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "limite_inferior"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "media − 3σ"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": "limite_.*"
+      },
+      "properties": [
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          10,
+          10
+         ]
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "orange"
+        }
+       },
+       {
+        "id": "custom.lineWidth",
+        "value": 1
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "datos = from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_5m\" and r.nodo == \"${nodo}\" and r._field == \"t\")\n  |> keep(columns: [\"_time\", \"_value\"])\n\nm = (datos |> mean() |> findRecord(fn: (key) => true, idx: 0))._value\ns = (datos |> stddev() |> findRecord(fn: (key) => true, idx: 0))._value\n\ndatos |> map(fn: (r) => ({_time: r._time, temperatura: r._value, limite_superior: m + 3.0 * s, limite_inferior: m - 3.0 * s}))"
+    }
+   ]
+  },
+  {
+   "id": 30,
+   "type": "timeseries",
+   "title": "Puerta por día: minutos abierta y aperturas",
+   "description": "Totales por día, no aperturas individuales: la hora de cada ingreso puede identificar a una persona (Ley 1581 de 2012).",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 46,
+    "w": 6,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "custom": {
+      "drawStyle": "bars",
+      "lineWidth": 1,
+      "fillOpacity": 70,
+      "showPoints": "never",
+      "spanNulls": false,
+      "thresholdsStyle": {
+       "mode": "off"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0,
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "none"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_5m\" and r.nodo == \"${nodo}\" and r._field == \"puerta_fraccion\")\n  |> map(fn: (r) => ({r with _value: float(v: r._value)}))\n  |> aggregateWindow(every: 1d, offset: 5h, fn: sum, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value * 5.0, _field: \"minutos abierta\"}))"
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_limpia\" and r.nodo == \"${nodo}\" and r._field == \"puerta_n\")\n  |> map(fn: (r) => ({r with _value: float(v: r._value)}))\n  |> aggregateWindow(every: 1d, offset: 5h, fn: sum, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value * 1.0, _field: \"aperturas\"}))"
+    }
+   ]
+  },
+  {
+   "id": 31,
+   "type": "timeseries",
+   "title": "Energía aparente por día (VA·h)",
+   "description": "Suma diaria de la tarea resumen_1h.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "influx-procesado"
+   },
+   "gridPos": {
+    "x": 18,
+    "y": 46,
+    "w": 6,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "custom": {
+      "drawStyle": "bars",
+      "lineWidth": 1,
+      "fillOpacity": 70,
+      "showPoints": "never",
+      "spanNulls": false,
+      "thresholdsStyle": {
+       "mode": "off"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0,
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": false
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "influx-procesado"
+     },
+     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_1h\" and r.nodo == \"${nodo}\" and r._field == \"energia_vah\")\n  |> map(fn: (r) => ({r with _value: float(v: r._value)}))\n  |> aggregateWindow(every: 1d, offset: 5h, fn: sum, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value * 1.0, _field: \"energía\"}))"
+    }
+   ]
+  }
+ ]
+}
