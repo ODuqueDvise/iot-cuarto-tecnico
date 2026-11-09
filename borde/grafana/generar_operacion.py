@@ -28,6 +28,7 @@ RANGO = "range(start: v.timeRangeStart, stop: v.timeRangeStop)"   # probar_consu
 T_MIN, T_MAX, HR_MAX, PR_MAX = 18, 27, 60, 15
 SIN_DATOS_S = 90          # tres periodos de 30 s sin muestra
 PUERTA_MIN = 10           # minutos seguidos con la puerta abierta
+SOSTENIDO = "15m"         # las variables ambientales deben seguir sobre el umbral este tiempo antes del correo
 
 # ---------------------------------------------------------------- consultas
 
@@ -177,9 +178,13 @@ def perfil(campo):
             '  |> map(fn: (r) => ({hora: if r.hora < 10 then "0" + string(v: r.hora) else string(v: r.hora), media: r._value}))')
 
 
+# Conteo por intervalos de 0,1 °C calculado en InfluxDB (unas 40 filas) en vez de traer las 20.000 muestras a Grafana.
 Q_HISTOGRAMA = (LIMPIA + '  |> filter(fn: (r) => r._field == "t")\n'
-                '  |> keep(columns: ["_time", "_value"])\n'
-                '  |> map(fn: (r) => ({_time: r._time, temperatura: r._value}))')
+                '  |> keep(columns: ["_value"])\n'
+                '  |> map(fn: (r) => ({intervalo: float(v: int(v: r._value * 10.0)) / 10.0, n: 1}))\n'
+                '  |> group(columns: ["intervalo"])\n  |> count(column: "n")\n'
+                '  |> group()\n  |> sort(columns: ["intervalo"])\n'
+                '  |> map(fn: (r) => ({intervalo: string(v: r.intervalo), muestras: r.n}))')
 
 
 def banda(campo, nombre):
@@ -259,8 +264,9 @@ def umbrales(*pasos):
     return {"mode": "absolute", "steps": [{"color": c, "value": v} for c, v in pasos]}
 
 
-def stat(texto="value", grafico="none", calc="lastNotNull"):
-    return {"reduceOptions": {"calcs": [calc], "fields": "", "values": False}, "colorMode": "background",
+def stat(texto="value", grafico="none", calc="lastNotNull", fondo=True):
+    return {"reduceOptions": {"calcs": [calc], "fields": "", "values": False},
+            "colorMode": "background" if fondo else "none",
             "graphMode": grafico, "textMode": texto, "justifyMode": "center", "orientation": "auto",
             "wideLayout": True, "showPercentChange": False}
 
@@ -313,12 +319,12 @@ ahora = [
      umbrales(("green", None), ("red", PR_MAX)),
      f"Sobre {PR_MAX} °C aumenta el riesgo de condensación en los equipos."),
     ("Potencia aparente", Q_POTENCIA, "voltamp", 0,
-     umbrales(("text", None)),
+     None,
      "Corriente del circuito del rack por 120 V nominales. Sin factor de potencia conocido, no son vatios."),
 ]
 for i, (titulo, q, unidad, dec, u, desc) in enumerate(ahora):
-    paneles.append(panel("stat", titulo, (4 * i, y, 4, 4), [q], desc, unidad, stat(),
-                         {"decimals": dec, "thresholds": u, "color": {"mode": "thresholds"}}))
+    paneles.append(panel("stat", titulo, (4 * i, y, 4, 4), [q], desc, unidad, stat(fondo=u is not None),
+                         {"decimals": dec, "thresholds": u or umbrales(("text", None)), "color": {"mode": "thresholds"}}))
 paneles.append(panel("stat", "Puerta", (0, y + 4, 4, 4), [crudo_ahora("puerta", True)],
                      f"Abierta en ámbar. Si sigue abierta más de {PUERTA_MIN} min, llega un correo.", "none", stat(),
                      {"mappings": mapeo((0, "Cerrada", "green"), (1, "Abierta", "orange")),
@@ -334,14 +340,15 @@ paneles.append(panel("stat", "Última muestra del nodo", (8, y + 4, 4, 4), [Q_ED
                      {"decimals": 0, "noValue": "sin datos en 24 h",
                       "thresholds": umbrales(("green", None), ("red", SIN_DATOS_S)), "color": {"mode": "thresholds"}}))
 paneles.append(panel("stat", "Energía aparente de hoy", (12, y + 4, 4, 4), [Q_ENERGIA_HOY],
-                     "Desde la medianoche, sobre el nivel procesado (se actualiza cada 10 min).", "none", stat(),
+                     "Desde la medianoche, sobre el nivel procesado (se actualiza cada 10 min).", "none", stat(fondo=False),
                      {"decimals": 1, "unit": "VA·h", "thresholds": umbrales(("text", None)),
                       "color": {"mode": "thresholds"}}))
 paneles.append({"id": nuevo_id(), "type": "alertlist", "title": "Alertas (se envían por correo)",
-                "description": "Estado de las seis reglas. Normal en verde; en curso o disparada en rojo.",
+                "description": "Estado de las seis reglas, las disparadas primero. Crítica: correo inmediato, repite cada 4 h. "
+                               "Alta y media: un correo por episodio.",
                 "gridPos": {"x": 16, "y": y, "w": 8, "h": 8},
                 "options": {"viewMode": "list", "groupMode": "default", "groupBy": [], "maxItems": 10,
-                            "sortOrder": 1, "dashboardAlerts": False, "alertName": "", "alertInstanceLabelFilter": "",
+                            "sortOrder": 3, "dashboardAlerts": False, "alertName": "", "alertInstanceLabelFilter": "",
                             "folder": None, "showInstances": False,
                             "stateFilter": {"firing": True, "pending": True, "noData": True, "normal": True,
                                             "error": True}}})
@@ -377,7 +384,7 @@ y += 7
 # ---- franja 3: análisis -----------------------------------------------------
 paneles.append(fila("Análisis del periodo seleccionado arriba a la derecha (nivel procesado: datos limpios)", y)); y += 1
 indicadores = [
-    ("Muestras válidas", Q_MUESTRAS, "none", 0, umbrales(("text", None)),
+    ("Muestras válidas", Q_MUESTRAS, "none", 0, None,
      "Muestras de telemetria_limpia en el periodo (una cada 30 s)."),
     ("Completitud", Q_COMPLETITUD, "percent", 1, umbrales(("red", None), ("orange", 95), ("green", 99)),
      "Muestras recibidas sobre esperadas, por hora (tarea calidad_1h). Bajo 95 %: las conclusiones pierden peso."),
@@ -392,8 +399,8 @@ indicadores = [
      "Ventanas de 5 min fuera de media ± 3 desviaciones del periodo: anomalías estadísticas, aunque estén dentro de la norma."),
 ]
 for i, (titulo, q, unidad, dec, u, desc) in enumerate(indicadores):
-    paneles.append(panel("stat", titulo, (4 * i, y, 4, 4), [q], desc, unidad, stat(),
-                         {"decimals": dec, "thresholds": u, "color": {"mode": "thresholds"}}))
+    paneles.append(panel("stat", titulo, (4 * i, y, 4, 4), [q], desc, unidad, stat(fondo=u is not None),
+                         {"decimals": dec, "thresholds": u or umbrales(("text", None)), "color": {"mode": "thresholds"}}))
 y += 4
 
 columnas = {"t": "Temperatura (°C)", "hr": "HR (%)", "pr": "Punto de rocío (°C)", "i": "Corriente (A)"}
@@ -426,17 +433,19 @@ barras_perfil = {"orientation": "vertical", "xField": "hora", "showValue": "neve
                  "tooltip": {"mode": "single", "sort": "none"}}
 paneles.append(panel("barchart", "Perfil por hora del día: temperatura media (°C)", (0, y, 8, 8), [perfil("t")],
                      "Promedio de cada hora local sobre todos los días del periodo: muestra el ciclo diario.",
-                     "celsius", barras_perfil, {"decimals": 1, "min": 20, "color": {"mode": "fixed", "fixedColor": "red"},
-                                                "custom": {"fillOpacity": 70, "lineWidth": 0}}))
+                     "none", barras_perfil, {"decimals": 1, "min": 20, "color": {"mode": "fixed", "fixedColor": "red"},
+                                             "custom": {"fillOpacity": 70, "lineWidth": 0}},
+                     [{"matcher": {"id": "byName", "options": "media"}, "properties": [{"id": "unit", "value": "celsius"}]}]))
 paneles.append(panel("barchart", "Perfil por hora del día: humedad relativa media (%)", (8, y, 8, 8), [perfil("hr")],
-                     "Promedio de cada hora local sobre todos los días del periodo.", "humidity", barras_perfil,
+                     "Promedio de cada hora local sobre todos los días del periodo.", "none", barras_perfil,
                      {"decimals": 1, "min": 40, "color": {"mode": "fixed", "fixedColor": "blue"},
+                      "custom": {"fillOpacity": 70, "lineWidth": 0}},
+                     [{"matcher": {"id": "byName", "options": "media"}, "properties": [{"id": "unit", "value": "humidity"}]}]))
+paneles.append(panel("barchart", "Distribución de la temperatura (muestras limpias)", (16, y, 8, 8), [Q_HISTOGRAMA],
+                     "Cuántas muestras cayeron en cada intervalo de 0,1 °C (eje en °C).", "none",
+                     {**barras_perfil, "xField": "intervalo", "xTickLabelSpacing": 60},
+                     {"decimals": 0, "min": 0, "color": {"mode": "fixed", "fixedColor": "red"},
                       "custom": {"fillOpacity": 70, "lineWidth": 0}}))
-paneles.append(panel("histogram", "Distribución de la temperatura (muestras limpias)", (16, y, 8, 8), [Q_HISTOGRAMA],
-                     "Cuántas muestras cayeron en cada intervalo de 0,1 °C.", "celsius",
-                     {"bucketSize": 0.1, "bucketOffset": 0, "combine": False,
-                      "legend": {"showLegend": False, "displayMode": "list", "placement": "bottom"}},
-                     {"color": {"mode": "fixed", "fixedColor": "red"}, "custom": {"fillOpacity": 70, "lineWidth": 1}}))
 y += 8
 
 paneles.append(panel("timeseries", "Anomalías: temperatura (media de 5 min) y banda de media ± 3σ", (0, y, 12, 8),
@@ -447,7 +456,7 @@ paneles.append(panel("timeseries", "Anomalías: temperatura (media de 5 min) y b
                        "properties": [{"id": "displayName", "value": "media + 3σ"}]},
                       {"matcher": {"id": "byName", "options": "limite_inferior"},
                        "properties": [{"id": "displayName", "value": "media − 3σ"}]},
-                      {"matcher": {"id": "byRegexp", "options": "limite_.*"},
+                      {"matcher": {"id": "byRegexp", "options": "^media .*"},
                        "properties": [{"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [10, 10]}},
                                       {"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}},
                                       {"id": "custom.lineWidth", "value": 1}]}]))
@@ -455,19 +464,19 @@ paneles.append(panel("timeseries", "Puerta por día: minutos abierta y aperturas
                      [por_dia("telemetria_5m", "puerta_fraccion", 5.0, "minutos abierta"),
                       por_dia("telemetria_limpia", "puerta_n", 1.0, "aperturas")],
                      "Totales por día, no aperturas individuales: la hora de cada ingreso puede identificar a una persona "
-                     "(Ley 1581 de 2012).", "none", leyenda, serie(min_=0, barras=True, decimales=0)))
+                     "(Ley 1581 de 2012). Los días de los extremos del periodo están incompletos.", "none", leyenda, serie(min_=0, barras=True, decimales=0)))
 paneles.append(panel("timeseries", "Energía aparente por día (VA·h)", (18, y, 6, 8),
                      [por_dia("telemetria_1h", "energia_vah", 1.0, "energía")],
-                     "Suma diaria de la tarea resumen_1h.", "none", sin_leyenda, serie(min_=0, barras=True, decimales=0)))
+                     "Suma diaria de la tarea resumen_1h. El primer y el último día del periodo están incompletos.", "none", sin_leyenda, serie(min_=0, barras=True, decimales=0)))
 y += 8
 
 tablero = {
     "uid": "operacion", "title": "Operación del cuarto técnico", "tags": ["iot", "operacion"],
     "description": "Actividad 5: tablero para decidir. Franja 1, qué pasa ahora; franja 2, últimas 24 h; "
                    "franja 3, análisis del periodo elegido.",
-    "timezone": "America/Bogota", "editable": True, "refresh": "30s", "schemaVersion": 39, "version": 1,
+    "timezone": "America/Bogota", "editable": True, "refresh": "1m", "schemaVersion": 39, "version": 1,
     "time": {"from": "now-7d", "to": "now"}, "graphTooltip": 1, "liveNow": False,
-    "timepicker": {"refresh_intervals": ["10s", "30s", "1m", "5m"]},
+    "timepicker": {"refresh_intervals": ["30s", "1m", "5m", "15m"]},
     "annotations": {"list": [{
         "name": "Eventos (puerta, agua, apagados, huecos)", "datasource": DS, "enable": True, "iconColor": "purple",
         "target": {"refId": "Anno", "query": Q_EVENTOS},
@@ -500,19 +509,19 @@ Q_REGLA_EDAD = ('from(bucket: "cuarto")\n'
                 '  |> map(fn: (r) => ({_time: r._time, nodo: r.nodo, _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0}))')
 
 REGLAS = [
-    # uid, título, consulta, ventana (s), reductor, umbral, severidad, sin datos, resumen
-    ("cuarto-agua", "Agua en el piso del cuarto técnico", regla_serie("agua", True), 65, "min", 0.5, "critica", "OK",
+    # uid, título, consulta, ventana (s), reductor, umbral, severidad, sin datos, tiempo sostenido, resumen
+    ("cuarto-agua", "Agua en el piso del cuarto técnico", regla_serie("agua", True), 65, "min", 0.5, "critica", "OK", "0s",
      "Agua detectada en {{ $labels.nodo }} en dos muestras seguidas. Ir al cuarto de inmediato: posible filtración sobre los equipos."),
-    ("cuarto-nodo", "Nodo sin datos", Q_REGLA_EDAD, 3600, "last", SIN_DATOS_S, "critica", "Alerting",
+    ("cuarto-nodo", "Nodo sin datos", Q_REGLA_EDAD, 3600, "last", SIN_DATOS_S, "critica", "Alerting", "0s",
      "{{ $labels.nodo }} no envía muestras hace {{ printf \"%.0f\" $values.B.Value }} s. El tablero ya no refleja el cuarto: revisar alimentación, Wi-Fi y borde."),
-    ("cuarto-temperatura", f"Temperatura sobre {T_MAX} °C", regla_serie("t"), 300, "mean", T_MAX, "alta", "OK",
+    ("cuarto-temperatura", f"Temperatura sobre {T_MAX} °C", regla_serie("t"), 300, "mean", T_MAX, "alta", "OK", SOSTENIDO,
      "Temperatura media de 5 min en {{ $labels.nodo }}: {{ printf \"%.1f\" $values.B.Value }} °C. Revisar el aire acondicionado y la carga del rack."),
-    ("cuarto-humedad", f"Humedad relativa sobre {HR_MAX} %", regla_serie("hr"), 300, "mean", HR_MAX, "alta", "OK",
+    ("cuarto-humedad", f"Humedad relativa sobre {HR_MAX} %", regla_serie("hr"), 300, "mean", HR_MAX, "alta", "OK", SOSTENIDO,
      "HR media de 5 min en {{ $labels.nodo }}: {{ printf \"%.1f\" $values.B.Value }} %. Revisar deshumidificación y filtraciones."),
-    ("cuarto-rocio", f"Punto de rocío sobre {PR_MAX} °C", regla_serie("pr"), 300, "mean", PR_MAX, "alta", "OK",
+    ("cuarto-rocio", f"Punto de rocío sobre {PR_MAX} °C", regla_serie("pr"), 300, "mean", PR_MAX, "alta", "OK", SOSTENIDO,
      "Punto de rocío medio de 5 min en {{ $labels.nodo }}: {{ printf \"%.1f\" $values.B.Value }} °C. Riesgo de condensación."),
     ("cuarto-puerta", f"Puerta abierta más de {PUERTA_MIN} min", regla_serie("puerta", True), PUERTA_MIN * 60, "min",
-     0.5, "media", "OK",
+     0.5, "media", "OK", "0s",
      "La puerta del cuarto ({{ $labels.nodo }}) lleva más de " + str(PUERTA_MIN) + " min abierta. Confirmar si hay una intervención en curso."),
 ]
 
@@ -532,7 +541,7 @@ def alertas_yaml():
          "# /etc/grafana/provisioning/alerting/cuarto.yaml (640, root:grafana).",
          "apiVersion: 1", "groups:", "  - orgId: 1", "    name: cuarto_tecnico", "    folder: Cuarto técnico",
          "    interval: 30s", "    rules:"]
-    for uid, titulo, q, ventana, reductor, umbral, sev, sin_datos, resumen in REGLAS:
+    for uid, titulo, q, ventana, reductor, umbral, sev, sin_datos, sostenido, resumen in REGLAS:
         l += [f"      - uid: {uid}", f"        title: {yaml_cadena(titulo)}", "        condition: C", "        data:",
               "          - refId: A", "            relativeTimeRange:", f"              from: {ventana}",
               "              to: 0", "            datasourceUid: influx-procesado", "            model:",
@@ -545,16 +554,29 @@ def alertas_yaml():
               "              refId: C", "              type: threshold", "              expression: B",
               "              conditions:", "                - evaluator:", "                    type: gt",
               f"                    params: [{umbral}]",
-              f"        noDataState: {sin_datos}", "        execErrState: Error", "        for: 0s",
+              f"        noDataState: {sin_datos}", "        execErrState: Error", f"        for: {sostenido}",
               "        isPaused: false", "        annotations:", f"          summary: {yaml_cadena(resumen)}",
               "          dashboardUId: operacion", "        labels:", f"          severidad: {sev}"]
-    l += ["contactPoints:", "  - orgId: 1", "    name: Correo del cuarto técnico", "    receivers:",
-          "      - uid: correo-cuarto", "        type: email", "        settings:",
+    # Dos puntos de contacto al mismo buzón con políticas distintas. Crítica (agua, nodo): correo en 10 s, repite cada
+    # 4 h y avisa al resolver. Alta y media (ambiente, puerta): un correo por episodio, repite a las 24 h si persiste y
+    # no avisa al resolver. Con la política única (repetir cada 4 h y resolver) llegaron 16 correos de humedad y punto
+    # de rocío entre el 6 y el 8 de noviembre por excursiones nocturnas de varias horas.
+    l += ["contactPoints:", "  - orgId: 1", "    name: Correo urgente", "    receivers:",
+          "      - uid: correo-urgente", "        type: email", "        settings:",
           "          addresses: __CORREO_DESTINO__", "          singleEmail: true",
+          "          subject: \"[Cuarto técnico] {{ .CommonLabels.alertname }}: actuar ahora\"",
           "        disableResolveMessage: false",
-          "policies:", "  - orgId: 1", "    receiver: Correo del cuarto técnico", "    group_by:",
+          "  - orgId: 1", "    name: Correo informativo", "    receivers:",
+          "      - uid: correo-informativo", "        type: email", "        settings:",
+          "          addresses: __CORREO_DESTINO__", "          singleEmail: true",
+          "          subject: \"[Cuarto técnico] {{ .CommonLabels.alertname }}\"",
+          "        disableResolveMessage: true",
+          "policies:", "  - orgId: 1", "    receiver: Correo urgente", "    group_by:",
           "      - alertname", "      - nodo", "    group_wait: 10s", "    group_interval: 1m",
-          "    repeat_interval: 4h"]
+          "    repeat_interval: 4h", "    routes:",
+          "      - receiver: Correo informativo", "        object_matchers:",
+          "          - [severidad, =~, \"alta|media\"]",
+          "        group_wait: 1m", "        group_interval: 5m", "        repeat_interval: 24h"]
     return "\n".join(l) + "\n"
 
 

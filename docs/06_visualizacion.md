@@ -32,16 +32,34 @@ quien entró (Ley 1581 de 2012).
 |---|---|---|
 | Agua en el piso | `agua` en todas las muestras de los últimos 65 s (dos seguidas) | crítica |
 | Nodo sin datos | más de 90 s desde la última muestra, o ninguna en 1 h | crítica |
-| Temperatura alta | media de 5 min sobre 27 °C | alta |
-| Humedad alta | media de 5 min sobre 60 % | alta |
-| Punto de rocío alto | media de 5 min sobre 15 °C | alta |
+| Temperatura alta | media de 5 min sobre 27 °C durante 15 min | alta |
+| Humedad alta | media de 5 min sobre 60 % durante 15 min | alta |
+| Punto de rocío alto | media de 5 min sobre 15 °C durante 15 min | alta |
 | Puerta abierta | abierta en todas las muestras de 10 min | media |
 
-Grafana evalúa cada 30 s. Una política agrupa por regla y nodo, espera 10 s y repite cada 4 h si sigue activa.
+Grafana evalúa cada 30 s. Dos políticas al mismo buzón, separadas por la etiqueta `severidad`:
+
+| Severidad | Punto de contacto | Espera | Repite si persiste | Aviso al resolver |
+|---|---|---|---|---|
+| crítica (agua, nodo) | Correo urgente | 10 s | cada 4 h | sí |
+| alta y media (ambiente, puerta) | Correo informativo | 1 min | cada 24 h | no |
+
+Por qué: con una sola política (repetir cada 4 h y avisar al resolver) llegaron 16 correos de humedad y punto de rocío
+entre el 6 y el 8 de noviembre. No eran oscilaciones: la HR estuvo sobre 60 % de forma continua de 00:30 a 07:39 el
+8 de noviembre, y cada episodio generó dos o tres correos. Esa condición pide una decisión de mantenimiento que se toma
+una vez, no una respuesta de madrugada; un correo por episodio basta. Las tres reglas ambientales exigen además 15 min
+sostenidos para no avisar por cruces de minutos.
 Las reglas están aprovisionadas por archivo: no se editan en la interfaz.
 
 Correo: `/etc/grafana/correo.env` en la Pi (600, root), cargado por el drop-in `correo.conf`; modelo en
 `correo.env.ejemplo`. La contraseña nunca entra al repositorio ni se imprime.
+
+## Memoria
+
+Grafana 13 en la Pi de 1 GB pasó de 356 a 452 MB en 85 s con el tablero abierto (8 de noviembre). Medidas: el
+histograma se calcula en InfluxDB (40 filas en vez de 20.000 muestras), el refresco del tablero es de 1 min, y
+`memoria.conf` fija `GOMEMLIMIT=300MiB` para que el recolector de Go libere antes del límite físico. Cada sesión SSH
+desde Warp carga además su servidor remoto (`oz`, unos 80 MB) mientras dura.
 
 ## Instalación
 

@@ -8,7 +8,7 @@
  "description": "Actividad 5: tablero para decidir. Franja 1, qué pasa ahora; franja 2, últimas 24 h; franja 3, análisis del periodo elegido.",
  "timezone": "America/Bogota",
  "editable": true,
- "refresh": "30s",
+ "refresh": "1m",
  "schemaVersion": 39,
  "version": 1,
  "time": {
@@ -19,10 +19,10 @@
  "liveNow": false,
  "timepicker": {
   "refresh_intervals": [
-   "10s",
    "30s",
    "1m",
-   "5m"
+   "5m",
+   "15m"
   ]
  },
  "annotations": {
@@ -331,7 +331,7 @@
      "fields": "",
      "values": false
     },
-    "colorMode": "background",
+    "colorMode": "none",
     "graphMode": "none",
     "textMode": "value",
     "justifyMode": "center",
@@ -612,7 +612,7 @@
      "fields": "",
      "values": false
     },
-    "colorMode": "background",
+    "colorMode": "none",
     "graphMode": "none",
     "textMode": "value",
     "justifyMode": "center",
@@ -635,7 +635,7 @@
    "id": 10,
    "type": "alertlist",
    "title": "Alertas (se envían por correo)",
-   "description": "Estado de las seis reglas. Normal en verde; en curso o disparada en rojo.",
+   "description": "Estado de las seis reglas, las disparadas primero. Crítica: correo inmediato, repite cada 4 h. Alta y media: un correo por episodio.",
    "gridPos": {
     "x": 16,
     "y": 1,
@@ -647,7 +647,7 @@
     "groupMode": "default",
     "groupBy": [],
     "maxItems": 10,
-    "sortOrder": 1,
+    "sortOrder": 3,
     "dashboardAlerts": false,
     "alertName": "",
     "alertInstanceLabelFilter": "",
@@ -1101,7 +1101,7 @@
      "fields": "",
      "values": false
     },
-    "colorMode": "background",
+    "colorMode": "none",
     "graphMode": "none",
     "textMode": "value",
     "justifyMode": "center",
@@ -1638,7 +1638,7 @@
    },
    "fieldConfig": {
     "defaults": {
-     "unit": "celsius",
+     "unit": "none",
      "decimals": 1,
      "min": 20,
      "color": {
@@ -1650,7 +1650,20 @@
       "lineWidth": 0
      }
     },
-    "overrides": []
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "media"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "celsius"
+       }
+      ]
+     }
+    ]
    },
    "options": {
     "orientation": "vertical",
@@ -1699,7 +1712,7 @@
    },
    "fieldConfig": {
     "defaults": {
-     "unit": "humidity",
+     "unit": "none",
      "decimals": 1,
      "min": 40,
      "color": {
@@ -1711,7 +1724,20 @@
       "lineWidth": 0
      }
     },
-    "overrides": []
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "media"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "humidity"
+       }
+      ]
+     }
+    ]
    },
    "options": {
     "orientation": "vertical",
@@ -1745,9 +1771,9 @@
   },
   {
    "id": 28,
-   "type": "histogram",
+   "type": "barchart",
    "title": "Distribución de la temperatura (muestras limpias)",
-   "description": "Cuántas muestras cayeron en cada intervalo de 0,1 °C.",
+   "description": "Cuántas muestras cayeron en cada intervalo de 0,1 °C (eje en °C).",
    "datasource": {
     "type": "influxdb",
     "uid": "influx-procesado"
@@ -1760,26 +1786,37 @@
    },
    "fieldConfig": {
     "defaults": {
-     "unit": "celsius",
+     "unit": "none",
+     "decimals": 0,
+     "min": 0,
      "color": {
       "mode": "fixed",
       "fixedColor": "red"
      },
      "custom": {
       "fillOpacity": 70,
-      "lineWidth": 1
+      "lineWidth": 0
      }
     },
     "overrides": []
    },
    "options": {
-    "bucketSize": 0.1,
-    "bucketOffset": 0,
-    "combine": false,
+    "orientation": "vertical",
+    "xField": "intervalo",
+    "showValue": "never",
+    "stacking": "none",
+    "groupWidth": 0.8,
+    "barWidth": 0.9,
+    "xTickLabelRotation": 0,
+    "xTickLabelSpacing": 60,
     "legend": {
      "showLegend": false,
      "displayMode": "list",
      "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "single",
+     "sort": "none"
     }
    },
    "targets": [
@@ -1789,7 +1826,7 @@
       "type": "influxdb",
       "uid": "influx-procesado"
      },
-     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_limpia\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r._field == \"t\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> map(fn: (r) => ({_time: r._time, temperatura: r._value}))"
+     "query": "from(bucket: \"cuarto_procesado\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetria_limpia\" and r.nodo == \"${nodo}\")\n  |> filter(fn: (r) => r._field == \"t\")\n  |> keep(columns: [\"_value\"])\n  |> map(fn: (r) => ({intervalo: float(v: int(v: r._value * 10.0)) / 10.0, n: 1}))\n  |> group(columns: [\"intervalo\"])\n  |> count(column: \"n\")\n  |> group()\n  |> sort(columns: [\"intervalo\"])\n  |> map(fn: (r) => ({intervalo: string(v: r.intervalo), muestras: r.n}))"
     }
    ]
   },
@@ -1854,7 +1891,7 @@
      {
       "matcher": {
        "id": "byRegexp",
-       "options": "limite_.*"
+       "options": "^media .*"
       },
       "properties": [
        {
@@ -1908,7 +1945,7 @@
    "id": 30,
    "type": "timeseries",
    "title": "Puerta por día: minutos abierta y aperturas",
-   "description": "Totales por día, no aperturas individuales: la hora de cada ingreso puede identificar a una persona (Ley 1581 de 2012).",
+   "description": "Totales por día, no aperturas individuales: la hora de cada ingreso puede identificar a una persona (Ley 1581 de 2012). Los días de los extremos del periodo están incompletos.",
    "datasource": {
     "type": "influxdb",
     "uid": "influx-procesado"
@@ -1974,7 +2011,7 @@
    "id": 31,
    "type": "timeseries",
    "title": "Energía aparente por día (VA·h)",
-   "description": "Suma diaria de la tarea resumen_1h.",
+   "description": "Suma diaria de la tarea resumen_1h. El primer y el último día del periodo están incompletos.",
    "datasource": {
     "type": "influxdb",
     "uid": "influx-procesado"

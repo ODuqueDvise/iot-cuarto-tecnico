@@ -7,7 +7,7 @@
 #   2. cada consulta del tablero y de las alertas contra InfluxDB (últimos 30 min); luego el tablero sobre 7 días,
 #      solo para medir tiempos
 #   3. tablero en /var/lib/grafana/dashboards/cuarto (carpeta "Cuarto técnico", proveedor de nodo.sh panel)
-#   4. correo: drop-in de systemd que carga /etc/grafana/correo.env (600, root) y reglas en
+#   4. límite de memoria de Grafana (memoria.conf), correo: drop-in de systemd que carga /etc/grafana/correo.env (600, root) y reglas en
 #      /etc/grafana/provisioning/alerting/cuarto.yaml con la dirección de destino
 #   5. reinicio de Grafana y revisión del registro
 #
@@ -36,7 +36,9 @@ sudo install -d -o grafana -g grafana /var/lib/grafana/dashboards/cuarto
 sudo install -o grafana -g grafana -m 644 "$AQUI/operacion.json" /var/lib/grafana/dashboards/cuarto/operacion.json
 sudo install -o grafana -g grafana -m 644 "$AQUI/procesado.json" /var/lib/grafana/dashboards/cuarto/procesado.json
 
-echo "== 4. Correo y alertas"
+echo "== 4. Límite de memoria de Grafana, correo y alertas"
+sudo install -d /etc/systemd/system/grafana-server.service.d
+sudo install -m 644 "$AQUI/memoria.conf" /etc/systemd/system/grafana-server.service.d/memoria.conf
 CON_ALERTAS=no
 if sudo test -f "$ENV"; then
     sudo chown root:root "$ENV"; sudo chmod 600 "$ENV"
@@ -64,6 +66,8 @@ sudo systemctl restart grafana-server
 for _ in $(seq 1 45); do curl -sf http://localhost:3000/api/health >/dev/null && break; sleep 2; done
 echo "   grafana-server: $(systemctl is-active grafana-server)"
 PID="$(systemctl show -p MainPID --value grafana-server)"
+echo "   GOMEMLIMIT en Grafana: $(sudo cat "/proc/$PID/environ" | tr '\0' '\n' | grep '^GOMEMLIMIT=' | cut -d= -f2)"
+echo "   memoria de Grafana al arrancar: $(ps -o rss= -p "$PID" | awk '{printf "%d MB", $1/1024}')"
 if [ "$CON_ALERTAS" = si ]; then
     echo "   variables de correo cargadas en Grafana: $(sudo cat "/proc/$PID/environ" | tr '\0' '\n' | grep -c '^GF_SMTP_')"
 fi

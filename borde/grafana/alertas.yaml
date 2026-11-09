@@ -143,7 +143,7 @@ groups:
                     params: [27]
         noDataState: OK
         execErrState: Error
-        for: 0s
+        for: 15m
         isPaused: false
         annotations:
           summary: "Temperatura media de 5 min en {{ $labels.nodo }}: {{ printf \"%.1f\" $values.B.Value }} °C. Revisar el aire acondicionado y la carga del rack."
@@ -190,7 +190,7 @@ groups:
                     params: [60]
         noDataState: OK
         execErrState: Error
-        for: 0s
+        for: 15m
         isPaused: false
         annotations:
           summary: "HR media de 5 min en {{ $labels.nodo }}: {{ printf \"%.1f\" $values.B.Value }} %. Revisar deshumidificación y filtraciones."
@@ -237,7 +237,7 @@ groups:
                     params: [15]
         noDataState: OK
         execErrState: Error
-        for: 0s
+        for: 15m
         isPaused: false
         annotations:
           summary: "Punto de rocío medio de 5 min en {{ $labels.nodo }}: {{ printf \"%.1f\" $values.B.Value }} °C. Riesgo de condensación."
@@ -294,20 +294,38 @@ groups:
           severidad: media
 contactPoints:
   - orgId: 1
-    name: Correo del cuarto técnico
+    name: Correo urgente
     receivers:
-      - uid: correo-cuarto
+      - uid: correo-urgente
         type: email
         settings:
           addresses: __CORREO_DESTINO__
           singleEmail: true
+          subject: "[Cuarto técnico] {{ .CommonLabels.alertname }}: actuar ahora"
         disableResolveMessage: false
+  - orgId: 1
+    name: Correo informativo
+    receivers:
+      - uid: correo-informativo
+        type: email
+        settings:
+          addresses: __CORREO_DESTINO__
+          singleEmail: true
+          subject: "[Cuarto técnico] {{ .CommonLabels.alertname }}"
+        disableResolveMessage: true
 policies:
   - orgId: 1
-    receiver: Correo del cuarto técnico
+    receiver: Correo urgente
     group_by:
       - alertname
       - nodo
     group_wait: 10s
     group_interval: 1m
     repeat_interval: 4h
+    routes:
+      - receiver: Correo informativo
+        object_matchers:
+          - [severidad, =~, "alta|media"]
+        group_wait: 1m
+        group_interval: 5m
+        repeat_interval: 24h

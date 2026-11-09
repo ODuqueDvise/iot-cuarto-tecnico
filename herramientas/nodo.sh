@@ -394,7 +394,8 @@ actualizar_operacion() {
     aviso "copiando a $usuario@$host"
     ssh "$usuario@$host" 'rm -rf /tmp/operacion_nueva && mkdir -p /tmp/operacion_nueva'
     scp -q "$origen/operacion.json" "$origen/procesado.json" "$origen/alertas.yaml" "$origen/consultas_alertas.json" \
-        "$origen/probar_consultas.py" "$origen/correo.conf" "$origen/correo.env.ejemplo" "$origen/instalar_operacion.sh" \
+        "$origen/probar_consultas.py" "$origen/correo.conf" "$origen/memoria.conf" "$origen/correo.env.ejemplo" \
+        "$origen/instalar_operacion.sh" \
         "$usuario@$host:/tmp/operacion_nueva/"
     aviso "probando las consultas e instalando (sudo puede pedir la contraseña de la Pi)"
     ssh -t "$usuario@$host" 'bash /tmp/operacion_nueva/instalar_operacion.sh'
