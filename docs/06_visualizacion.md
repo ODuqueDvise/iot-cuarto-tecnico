@@ -48,7 +48,11 @@ Por qué: con una sola política (repetir cada 4 h y avisar al resolver) llegaro
 entre el 6 y el 8 de noviembre. No eran oscilaciones: la HR estuvo sobre 60 % de forma continua de 00:30 a 07:39 el
 8 de noviembre, y cada episodio generó dos o tres correos. Esa condición pide una decisión de mantenimiento que se toma
 una vez, no una respuesta de madrugada; un correo por episodio basta. Las tres reglas ambientales exigen además 15 min
-sostenidos para no avisar por cruces de minutos.
+sostenidos (`for`) y siguen activas 30 min después de bajar del umbral (`keep_firing_for`): el 7 de noviembre la HR
+bajó de 60 % a las 09:17 y volvió a subir a las 09:29, lo que generó dos episodios con sus correos.
+
+Historial de la regla de humedad (estado Alerting, hora local): 6 nov. 19:32 a 20:26; 7 nov. 00:56 a 09:17 y 09:29 a
+09:50; 8 nov. 00:30 a 07:38. Punto de rocío: 6 nov. 19:32 a 7 nov. 03:12; 7 nov. 19:03 a 19:14.
 Las reglas están aprovisionadas por archivo: no se editan en la interfaz.
 
 Correo: `/etc/grafana/correo.env` en la Pi (600, root), cargado por el drop-in `correo.conf`; modelo en

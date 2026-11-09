@@ -29,6 +29,7 @@ T_MIN, T_MAX, HR_MAX, PR_MAX = 18, 27, 60, 15
 SIN_DATOS_S = 90          # tres periodos de 30 s sin muestra
 PUERTA_MIN = 10           # minutos seguidos con la puerta abierta
 SOSTENIDO = "15m"         # las variables ambientales deben seguir sobre el umbral este tiempo antes del correo
+MANTENER = "30m"          # y la alerta sigue activa este tiempo tras bajar del umbral (une los cortes breves)
 
 # ---------------------------------------------------------------- consultas
 
@@ -555,13 +556,15 @@ def alertas_yaml():
               "              conditions:", "                - evaluator:", "                    type: gt",
               f"                    params: [{umbral}]",
               f"        noDataState: {sin_datos}", "        execErrState: Error", f"        for: {sostenido}",
+              f"        keep_firing_for: {MANTENER if sostenido != '0s' else '0s'}",
               "        isPaused: false", "        annotations:", f"          summary: {yaml_cadena(resumen)}",
               "          dashboardUId: operacion", "        labels:", f"          severidad: {sev}"]
     # Dos puntos de contacto al mismo buzón con políticas distintas. Crítica (agua, nodo): correo en 10 s, repite cada
     # 4 h y avisa al resolver. Alta y media (ambiente, puerta): un correo por episodio, repite a las 24 h si persiste y
     # no avisa al resolver. Con la política única (repetir cada 4 h y resolver) llegaron 16 correos de humedad y punto
     # de rocío entre el 6 y el 8 de noviembre por excursiones nocturnas de varias horas.
-    l += ["contactPoints:", "  - orgId: 1", "    name: Correo urgente", "    receivers:",
+    l += ["deleteContactPoints:", "  - orgId: 1", "    uid: correo-cuarto",   # punto único de la primera versión
+          "contactPoints:", "  - orgId: 1", "    name: Correo urgente", "    receivers:",
           "      - uid: correo-urgente", "        type: email", "        settings:",
           "          addresses: __CORREO_DESTINO__", "          singleEmail: true",
           "          subject: \"[Cuarto técnico] {{ .CommonLabels.alertname }}: actuar ahora\"",

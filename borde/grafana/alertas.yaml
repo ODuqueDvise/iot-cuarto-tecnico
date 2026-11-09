@@ -49,6 +49,7 @@ groups:
         noDataState: OK
         execErrState: Error
         for: 0s
+        keep_firing_for: 0s
         isPaused: false
         annotations:
           summary: "Agua detectada en {{ $labels.nodo }} en dos muestras seguidas. Ir al cuarto de inmediato: posible filtración sobre los equipos."
@@ -97,6 +98,7 @@ groups:
         noDataState: Alerting
         execErrState: Error
         for: 0s
+        keep_firing_for: 0s
         isPaused: false
         annotations:
           summary: "{{ $labels.nodo }} no envía muestras hace {{ printf \"%.0f\" $values.B.Value }} s. El tablero ya no refleja el cuarto: revisar alimentación, Wi-Fi y borde."
@@ -144,6 +146,7 @@ groups:
         noDataState: OK
         execErrState: Error
         for: 15m
+        keep_firing_for: 30m
         isPaused: false
         annotations:
           summary: "Temperatura media de 5 min en {{ $labels.nodo }}: {{ printf \"%.1f\" $values.B.Value }} °C. Revisar el aire acondicionado y la carga del rack."
@@ -191,6 +194,7 @@ groups:
         noDataState: OK
         execErrState: Error
         for: 15m
+        keep_firing_for: 30m
         isPaused: false
         annotations:
           summary: "HR media de 5 min en {{ $labels.nodo }}: {{ printf \"%.1f\" $values.B.Value }} %. Revisar deshumidificación y filtraciones."
@@ -238,6 +242,7 @@ groups:
         noDataState: OK
         execErrState: Error
         for: 15m
+        keep_firing_for: 30m
         isPaused: false
         annotations:
           summary: "Punto de rocío medio de 5 min en {{ $labels.nodo }}: {{ printf \"%.1f\" $values.B.Value }} °C. Riesgo de condensación."
@@ -286,12 +291,16 @@ groups:
         noDataState: OK
         execErrState: Error
         for: 0s
+        keep_firing_for: 0s
         isPaused: false
         annotations:
           summary: "La puerta del cuarto ({{ $labels.nodo }}) lleva más de 10 min abierta. Confirmar si hay una intervención en curso."
           dashboardUId: operacion
         labels:
           severidad: media
+deleteContactPoints:
+  - orgId: 1
+    uid: correo-cuarto
 contactPoints:
   - orgId: 1
     name: Correo urgente
